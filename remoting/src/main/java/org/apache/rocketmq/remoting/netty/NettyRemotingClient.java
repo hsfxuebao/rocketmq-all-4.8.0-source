@@ -380,24 +380,33 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     @Override
     public RemotingCommand invokeSync(String addr, final RemotingCommand request, long timeoutMillis)
         throws InterruptedException, RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException {
+        // 开始时间
         long beginStartTime = System.currentTimeMillis();
         // todo 轮询获取namesrv地址Channel
         final Channel channel = this.getAndCreateChannel(addr);
         if (channel != null && channel.isActive()) {
             try {
+                // 执行开始之前的rpchook
                 doBeforeRpcHooks(addr, request);
                 long costTime = System.currentTimeMillis() - beginStartTime;
+                // 判断超时 之前有获取链接的操作，可能会出现超时的情况
                 if (timeoutMillis < costTime) {
                     throw new RemotingTimeoutException("invokeSync call timeout");
                 }
+                // todo 进行同步执行，获取响应
                 RemotingCommand response = this.invokeSyncImpl(channel, request, timeoutMillis - costTime);
+                // 执行之后的rpchook
                 doAfterRpcHooks(RemotingHelper.parseChannelRemoteAddr(channel), request, response);
                 return response;
+                // 远程发送请求异常
             } catch (RemotingSendRequestException e) {
                 log.warn("invokeSync: send request exception, so close the channel[{}]", addr);
+                // 关闭channel
                 this.closeChannel(addr, channel);
                 throw e;
+                // 超时异常
             } catch (RemotingTimeoutException e) {
+                // 如果超时 就关闭cahnnel话，就关闭channel 默认是不关闭的
                 if (nettyClientConfig.isClientCloseSocketIfTimeout()) {
                     this.closeChannel(addr, channel);
                     log.warn("invokeSync: close socket because of timeout, {}ms, {}", timeoutMillis, addr);
@@ -412,6 +421,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     }
 
     private Channel getAndCreateChannel(final String addr) throws RemotingConnectException, InterruptedException {
+        // 如果地址不存在，就返回namesrv 的channel
         if (null == addr) {
             return getAndCreateNameserverChannel();
         }
@@ -420,7 +430,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         if (cw != null && cw.isOK()) {
             return cw.getChannel();
         }
-
+        // 创建channel
         return this.createChannel(addr);
     }
 
