@@ -126,17 +126,23 @@ public class MQClientInstance {
     public MQClientInstance(ClientConfig clientConfig, int instanceIndex, String clientId, RPCHook rpcHook) {
         this.clientConfig = clientConfig;
         this.instanceIndex = instanceIndex;
+        // netty client配置
         this.nettyClientConfig = new NettyClientConfig();
+        // 设置客户端回调线程数
         this.nettyClientConfig.setClientCallbackExecutorThreads(clientConfig.getClientCallbackExecutorThreads());
+        // 是否启动tls
         this.nettyClientConfig.setUseTLS(clientConfig.isUseTLS());
+        // processor
         this.clientRemotingProcessor = new ClientRemotingProcessor(this);
         this.mQClientAPIImpl = new MQClientAPIImpl(this.nettyClientConfig, this.clientRemotingProcessor, rpcHook, clientConfig);
 
+        // namesrv 不为null，更新namesrv地址列表
         if (this.clientConfig.getNamesrvAddr() != null) {
             this.mQClientAPIImpl.updateNameServerAddressList(this.clientConfig.getNamesrvAddr());
             log.info("user specified name server address: {}", this.clientConfig.getNamesrvAddr());
         }
 
+        // 客户端id
         this.clientId = clientId;
 
         this.mQAdminImpl = new MQAdminImpl(this);
@@ -145,9 +151,11 @@ public class MQClientInstance {
 
         this.rebalanceService = new RebalanceService(this);
 
+        // client 内部的一个producer 组为CLIENT_INNER_PRODUCER
         this.defaultMQProducer = new DefaultMQProducer(MixAll.CLIENT_INNER_PRODUCER_GROUP);
         this.defaultMQProducer.resetClientConfig(clientConfig);
 
+        // 消费者状态管理器
         this.consumerStatsManager = new ConsumerStatsManager(this.scheduledExecutorService);
 
         log.info("Created a new client Instance, InstanceIndex:{}, ClientID:{}, ClientConfig:{}, ClientVersion:{}, SerializerType:{}",
@@ -226,22 +234,28 @@ public class MQClientInstance {
         synchronized (this) {
             switch (this.serviceState) {
                 case CREATE_JUST:
+                    // 先设置 失败
                     this.serviceState = ServiceState.START_FAILED;
                     // If not specified,looking address from name server
+                    // 判断namesrv 是否为null
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
-                    // Start request-response channel
+                    // todo Start request-response channel
                     this.mQClientAPIImpl.start();
                     // Start various schedule tasks
+                    // todo 开启任务调度
                     this.startScheduledTask();
                     // Start pull service
+                    // 开启 拉取服务
                     this.pullMessageService.start();
                     // Start rebalance service
+                    // 开启平衡服务
                     this.rebalanceService.start();
                     // Start push service
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
                     log.info("the client factory [{}] start OK", this.clientId);
+                    // 设置状态为running
                     this.serviceState = ServiceState.RUNNING;
                     break;
                 case START_FAILED:
@@ -254,6 +268,7 @@ public class MQClientInstance {
 
     private void startScheduledTask() {
         if (null == this.clientConfig.getNamesrvAddr()) {
+            // 获取namesrv地址， 2分钟执行一次
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
                 @Override
@@ -272,6 +287,7 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
+                    // 从namesrv上面更新topic的路由信息
                     MQClientInstance.this.updateTopicRouteInfoFromNameServer();
                 } catch (Exception e) {
                     log.error("ScheduledTask updateTopicRouteInfoFromNameServer exception", e);
@@ -284,7 +300,9 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
+                    // 清除下线broker
                     MQClientInstance.this.cleanOfflineBroker();
+                    // 发送心跳到所有broker上面
                     MQClientInstance.this.sendHeartbeatToAllBrokerWithLock();
                 } catch (Exception e) {
                     log.error("ScheduledTask sendHeartbeatToAllBroker exception", e);
@@ -928,10 +946,12 @@ public class MQClientInstance {
     }
 
     public boolean registerProducer(final String group, final DefaultMQProducerImpl producer) {
+        // 检查group 和producer
         if (null == group || null == producer) {
             return false;
         }
 
+        // 如果不存在就放到缓存中（生产者表）
         MQProducerInner prev = this.producerTable.putIfAbsent(group, producer);
         if (prev != null) {
             log.warn("the producer group[{}] exist already.", group);

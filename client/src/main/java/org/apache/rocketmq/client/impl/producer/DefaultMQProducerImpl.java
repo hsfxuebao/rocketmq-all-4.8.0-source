@@ -122,10 +122,12 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         this.defaultMQProducer = defaultMQProducer;
         this.rpcHook = rpcHook;
 
+        // 5w大小的链表队列，异步发送线程池队列
         this.asyncSenderThreadPoolQueue = new LinkedBlockingQueue<Runnable>(50000);
+        // 默认的异步发送线程池
         this.defaultAsyncSenderExecutor = new ThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors(),
-            Runtime.getRuntime().availableProcessors(),
+            Runtime.getRuntime().availableProcessors(),// 核心线程池数，cpu核数
+            Runtime.getRuntime().availableProcessors(), // 最大线程池数，cpu核数
             1000 * 60,
             TimeUnit.MILLISECONDS,
             this.asyncSenderThreadPoolQueue,
@@ -177,33 +179,45 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     public void start(final boolean startFactory) throws MQClientException {
         switch (this.serviceState) {
+            // 刚创建还没有启动
             case CREATE_JUST:
+                // 设置为启动失败状态
                 this.serviceState = ServiceState.START_FAILED;
 
+                // 检查group配置
                 this.checkConfig();
 
+                // 只要group组 不是CLIENT_INNER_PRODUCER， 就重新设置下实例名称
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
 
+                // todo 创建MQClientInstance 实例
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
+                // todo 进行注册
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
+                    // 没有注册成功，设置状态为创建没有启动，然后抛出之前已经注册的异常
                     this.serviceState = ServiceState.CREATE_JUST;
                     throw new MQClientException("The producer group[" + this.defaultMQProducer.getProducerGroup()
                         + "] has been created before, specify another name please." + FAQUrl.suggestTodo(FAQUrl.GROUP_NAME_DUPLICATE_URL),
                         null);
                 }
 
+                // topic --> topic info
                 this.topicPublishInfoTable.put(this.defaultMQProducer.getCreateTopicKey(), new TopicPublishInfo());
 
+                // 是否启动 client实例，默认是tru
                 if (startFactory) {
+                    // todo
                     mQClientFactory.start();
                 }
 
+                // 启动生产者成功
                 log.info("the producer [{}] start OK. sendMessageWithVIPChannel={}", this.defaultMQProducer.getProducerGroup(),
                     this.defaultMQProducer.isSendMessageWithVIPChannel());
+                // 设置状态running
                 this.serviceState = ServiceState.RUNNING;
                 break;
             case RUNNING:
