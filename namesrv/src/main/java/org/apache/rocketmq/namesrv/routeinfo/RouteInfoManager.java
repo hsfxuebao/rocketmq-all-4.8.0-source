@@ -49,10 +49,15 @@ public class RouteInfoManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    // todo topic -> queuedata
     private final HashMap<String/* topic */, List<QueueData>> topicQueueTable;
+    // todo broker名称 -> broker信息
     private final HashMap<String/* brokerName */, BrokerData> brokerAddrTable;
+    // todo 集群名字 -> broker名称
     private final HashMap<String/* clusterName */, Set<String/* brokerName */>> clusterAddrTable;
+    // todo broker地址-> broker活跃信息
     private final HashMap<String/* brokerAddr */, BrokerLiveInfo> brokerLiveTable;
+    // todo broker地址 -> 一堆过滤器
     private final HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
 
     public RouteInfoManager() {
@@ -384,25 +389,34 @@ public class RouteInfoManager {
 
         try {
             try {
+                // 读锁
                 this.lock.readLock().lockInterruptibly();
+                // 获取topic 获取queuedata 列表
                 List<QueueData> queueDataList = this.topicQueueTable.get(topic);
+                // 如果不为null
                 if (queueDataList != null) {
                     topicRouteData.setQueueDatas(queueDataList);
+                    // 设置foundQueueData
                     foundQueueData = true;
 
+                    // 获取queuedata 对应broker name
                     Iterator<QueueData> it = queueDataList.iterator();
                     while (it.hasNext()) {
                         QueueData qd = it.next();
                         brokerNameSet.add(qd.getBrokerName());
                     }
 
+                    // 再根据broker name 取broker地址列表中 获取broker信息
                     for (String brokerName : brokerNameSet) {
+                        // 根据broker 名字 获取broker信息
                         BrokerData brokerData = this.brokerAddrTable.get(brokerName);
                         if (null != brokerData) {
                             BrokerData brokerDataClone = new BrokerData(brokerData.getCluster(), brokerData.getBrokerName(), (HashMap<Long, String>) brokerData
                                 .getBrokerAddrs().clone());
                             brokerDataList.add(brokerDataClone);
+                            // 设置foundBrokerData
                             foundBrokerData = true;
+                            // 处理filter 就是根据broker地址获取对应filter集合 也就是某个broker可能对应一堆filter集合
                             for (final String brokerAddr : brokerDataClone.getBrokerAddrs().values()) {
                                 List<String> filterServerList = this.filterServerTable.get(brokerAddr);
                                 filterServerMap.put(brokerAddr, filterServerList);
