@@ -1358,30 +1358,44 @@ public class MQClientAPIImpl {
         return getTopicRouteInfoFromNameServer(topic, timeoutMillis, false);
     }
 
+
     public TopicRouteData getTopicRouteInfoFromNameServer(final String topic, final long timeoutMillis)
         throws RemotingException, MQClientException, InterruptedException {
-
+        // todo
         return getTopicRouteInfoFromNameServer(topic, timeoutMillis, true);
     }
 
+    /**
+     * 从namesrv获取topic路由信息
+     * @param topic topic名称
+     * @param timeoutMillis 超时时间，默认3s
+     * @param allowTopicNotExist 允许这个topic不存在
+     */
     public TopicRouteData getTopicRouteInfoFromNameServer(final String topic, final long timeoutMillis,
         boolean allowTopicNotExist) throws MQClientException, InterruptedException, RemotingTimeoutException, RemotingSendRequestException, RemotingConnectException {
+        // 获取路由信息的请求头
         GetRouteInfoRequestHeader requestHeader = new GetRouteInfoRequestHeader();
         requestHeader.setTopic(topic);
 
+        // 创建RemotingCommand 创建请求实体
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.GET_ROUTEINFO_BY_TOPIC, requestHeader);
 
+        // todo 进行同步调用，获取结果
         RemotingCommand response = this.remotingClient.invokeSync(null, request, timeoutMillis);
         assert response != null;
         switch (response.getCode()) {
+            // topic不存在
             case ResponseCode.TOPIC_NOT_EXIST: {
+                // 允许topic不存在
                 if (allowTopicNotExist) {
                     log.warn("get Topic [{}] RouteInfoFromNameServer is not exist value", topic);
                 }
 
                 break;
             }
+            // 成功
             case ResponseCode.SUCCESS: {
+                // 获取内容
                 byte[] body = response.getBody();
                 if (body != null) {
                     return TopicRouteData.decode(body, TopicRouteData.class);
@@ -1391,6 +1405,7 @@ public class MQClientAPIImpl {
                 break;
         }
 
+        // 抛异常
         throw new MQClientException(response.getCode(), response.getRemark());
     }
 
