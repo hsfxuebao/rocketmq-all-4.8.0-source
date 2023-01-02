@@ -63,13 +63,17 @@ public class NamesrvController {
     public NamesrvController(NamesrvConfig namesrvConfig, NettyServerConfig nettyServerConfig) {
         this.namesrvConfig = namesrvConfig;
         this.nettyServerConfig = nettyServerConfig;
+        // kv 配置manager
         this.kvConfigManager = new KVConfigManager(this);
+        // 路由信息管理
         this.routeInfoManager = new RouteInfoManager();
         this.brokerHousekeepingService = new BrokerHousekeepingService(this);
+        // configuration
         this.configuration = new Configuration(
             log,
             this.namesrvConfig, this.nettyServerConfig
         );
+        // 设置
         this.configuration.setStorePathFromConfig(this.namesrvConfig, "configStorePath");
     }
 
@@ -77,13 +81,17 @@ public class NamesrvController {
 
         this.kvConfigManager.load();
 
+        // 创建server
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
 
+        // 创建默认8个线程的线程池
         this.remotingExecutor =
             Executors.newFixedThreadPool(nettyServerConfig.getServerWorkerThreads(), new ThreadFactoryImpl("RemotingExecutorThread_"));
 
+        // 注册processer
         this.registerProcessor();
 
+        // 任务调度线程池 用来扫描掉线的broker  默认10s
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -153,6 +161,7 @@ public class NamesrvController {
     }
 
     public void start() throws Exception {
+        // 启动server
         this.remotingServer.start();
 
         if (this.fileWatchService != null) {
