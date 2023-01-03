@@ -548,14 +548,19 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         throws InterruptedException, RemotingConnectException, RemotingTooMuchRequestException, RemotingTimeoutException,
         RemotingSendRequestException {
         long beginStartTime = System.currentTimeMillis();
+        // 获取channel
         final Channel channel = this.getAndCreateChannel(addr);
+        // channel不为null 并且channel是激活
         if (channel != null && channel.isActive()) {
             try {
+                // 调用之前的钩子
                 doBeforeRpcHooks(addr, request);
+                // 判断超时时间
                 long costTime = System.currentTimeMillis() - beginStartTime;
                 if (timeoutMillis < costTime) {
                     throw new RemotingTooMuchRequestException("invokeAsync call timeout");
                 }
+                // todo 调用
                 this.invokeAsyncImpl(channel, request, timeoutMillis - costTime, invokeCallback);
             } catch (RemotingSendRequestException e) {
                 log.warn("invokeAsync: send request exception, so close the channel[{}]", addr);
@@ -563,6 +568,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                 throw e;
             }
         } else {
+            // 关闭channel
             this.closeChannel(addr, channel);
             throw new RemotingConnectException(addr);
         }
@@ -653,8 +659,12 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
 
     class NettyClientHandler extends SimpleChannelInboundHandler<RemotingCommand> {
 
+        /**
+         * 处理接收到的远程
+         */
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, RemotingCommand msg) throws Exception {
+            // todo
             processMessageReceived(ctx, msg);
         }
     }

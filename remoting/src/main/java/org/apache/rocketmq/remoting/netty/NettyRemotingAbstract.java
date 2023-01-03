@@ -154,10 +154,13 @@ public abstract class NettyRemotingAbstract {
         final RemotingCommand cmd = msg;
         if (cmd != null) {
             switch (cmd.getType()) {
+                // 请求消息
                 case REQUEST_COMMAND:
                     processRequestCommand(ctx, cmd);
                     break;
+                // 响应消息
                 case RESPONSE_COMMAND:
+                    // todo
                     processResponseCommand(ctx, cmd);
                     break;
                 default:
@@ -296,7 +299,7 @@ public abstract class NettyRemotingAbstract {
             responseTable.remove(opaque);
 
             if (responseFuture.getInvokeCallback() != null) {
-                // 执行回调
+                // todo 执行回调
                 executeInvokeCallback(responseFuture);
             } else {
                 responseFuture.putResponse(cmd);
@@ -313,6 +316,7 @@ public abstract class NettyRemotingAbstract {
      */
     private void executeInvokeCallback(final ResponseFuture responseFuture) {
         boolean runInThisThread = false;
+        // 获取回调线程池
         ExecutorService executor = this.getCallbackExecutor();
         if (executor != null) {
             try {
@@ -320,10 +324,12 @@ public abstract class NettyRemotingAbstract {
                     @Override
                     public void run() {
                         try {
+                            // todo 执行回调
                             responseFuture.executeInvokeCallback();
                         } catch (Throwable e) {
                             log.warn("execute callback in executor exception, and callback throw", e);
                         } finally {
+                            // 释放 信号量
                             responseFuture.release();
                         }
                     }
@@ -336,6 +342,7 @@ public abstract class NettyRemotingAbstract {
             runInThisThread = true;
         }
 
+        // 如果需要在该线程池中执行
         if (runInThisThread) {
             try {
                 responseFuture.executeInvokeCallback();
@@ -465,30 +472,39 @@ public abstract class NettyRemotingAbstract {
         throws InterruptedException, RemotingTooMuchRequestException, RemotingTimeoutException, RemotingSendRequestException {
         long beginStartTime = System.currentTimeMillis();
         final int opaque = request.getOpaque();
+        // 信号量限流
         boolean acquired = this.semaphoreAsync.tryAcquire(timeoutMillis, TimeUnit.MILLISECONDS);
+        // 获得许可
         if (acquired) {
             final SemaphoreReleaseOnlyOnce once = new SemaphoreReleaseOnlyOnce(this.semaphoreAsync);
+            // 判断超时
             long costTime = System.currentTimeMillis() - beginStartTime;
             if (timeoutMillis < costTime) {
                 once.release();
                 throw new RemotingTimeoutException("invokeAsyncImpl call timeout");
             }
 
+            // 构建ResponseFuture
             final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis - costTime, invokeCallback, once);
+            // 放入responseTable 表中
             this.responseTable.put(opaque, responseFuture);
             try {
+                // 发送
                 channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture f) throws Exception {
+                        // 发送成功，设置成功标志
                         if (f.isSuccess()) {
                             responseFuture.setSendRequestOK(true);
                             return;
                         }
+                        // 发送失败
                         requestFail(opaque);
                         log.warn("send a request command to channel <{}> failed.", RemotingHelper.parseChannelRemoteAddr(channel));
                     }
                 });
             } catch (Exception e) {
+                // 释放 信号量
                 responseFuture.release();
                 log.warn("send a request command to channel <" + RemotingHelper.parseChannelRemoteAddr(channel) + "> Exception", e);
                 throw new RemotingSendRequestException(RemotingHelper.parseChannelRemoteAddr(channel), e);
