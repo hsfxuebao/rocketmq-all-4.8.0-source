@@ -189,10 +189,11 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
                 // 只要group组 不是CLIENT_INNER_PRODUCER， 就重新设置下实例名称
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
+                    // 改变生产者的instanceName 为进程id
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
 
-                // todo 创建MQClientInstance 实例
+                // todo 创建MQClientInstance 实例（封装了网络处理API，消息生产者、消费者和Namesrv、broker打交道的网络通道）
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
                 // todo 进行注册
@@ -208,9 +209,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 // topic --> topic info
                 this.topicPublishInfoTable.put(this.defaultMQProducer.getCreateTopicKey(), new TopicPublishInfo());
 
-                // 是否启动 client实例，默认是tru
+                // 是否启动 client实例，默认是true
                 if (startFactory) {
-                    // todo
+                    // todo 核心
                     mQClientFactory.start();
                 }
 
@@ -579,14 +580,14 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         long beginTimestampFirst = System.currentTimeMillis();
         long beginTimestampPrev = beginTimestampFirst;
         long endTimestamp = beginTimestampFirst;
-        // 获取topic信息
+        // todo 获取topic信息
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
             MessageQueue mq = null;
             Exception exception = null;
             SendResult sendResult = null;
-            // 重试次数
+            // 重试次数 区分同步、其他
             int timesTotal = communicationMode == CommunicationMode.SYNC ? 1 + this.defaultMQProducer.getRetryTimesWhenSendFailed() : 1;
             int times = 0;
             // 存放发送过的broker name
@@ -719,9 +720,19 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     private TopicPublishInfo tryToFindTopicPublishInfo(final String topic) {
+        /**
+         * 第一次发送消息时，本地没有缓存topic的路由信息，查询
+         * NameServer尝试获取路由信息，如果路由信息未找到，再次尝试用默
+         * 认主题DefaultMQProducerImpl#createTopicKey去查询
+         */
+        /**
+         * 生产环境，不建议开启自动创建主题
+         * 原因如：https://mp.weixin.qq.com/s/GbSlS3hi8IE0kznTynV4ZQ
+         */
         TopicPublishInfo topicPublishInfo = this.topicPublishInfoTable.get(topic);
         if (null == topicPublishInfo || !topicPublishInfo.ok()) {
             this.topicPublishInfoTable.putIfAbsent(topic, new TopicPublishInfo());
+            // 首先，使用topic 从NameServer尝试获取路由信息
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic);
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
         }
@@ -729,7 +740,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         if (topicPublishInfo.isHaveTopicRouterInfo() || topicPublishInfo.ok()) {
             return topicPublishInfo;
         } else {
-            // isDefault 为true
+            // isDefault 为true 其次，使用默认的topic从NameServer尝试获取路由信息
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic, true, this.defaultMQProducer);
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
             return topicPublishInfo;
@@ -1171,16 +1182,19 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 String userTopic = NamespaceUtil.withoutNamespace(userMessage.getTopic(), mQClientFactory.getClientConfig().getNamespace());
                 userMessage.setTopic(userTopic);
 
+                // 根据args参数 选取队列
                 mq = mQClientFactory.getClientConfig().queueWithNamespace(selector.select(messageQueueList, userMessage, arg));
             } catch (Throwable e) {
                 throw new MQClientException("select message queue threw exception.", e);
             }
 
+            // 判断超时时间
             long costTime = System.currentTimeMillis() - beginStartTime;
             if (timeout < costTime) {
                 throw new RemotingTooMuchRequestException("sendSelectImpl call timeout");
             }
             if (mq != null) {
+                // todo
                 return this.sendKernelImpl(msg, mq, communicationMode, sendCallback, null, timeout - costTime);
             } else {
                 throw new MQClientException("select message queue return null.", null);
@@ -1344,7 +1358,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
      */
     public SendResult send(
         Message msg) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
-        // 默认超时时间3s
+        // todo 默认超时时间3s
         return send(msg, this.defaultMQProducer.getSendMsgTimeout());
     }
 
@@ -1399,6 +1413,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     public SendResult send(Message msg,
         long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        // todo
         return this.sendDefaultImpl(msg, CommunicationMode.SYNC, null, timeout);
     }
 

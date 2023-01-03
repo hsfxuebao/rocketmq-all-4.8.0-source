@@ -22,12 +22,21 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 消息失败策略，延迟实现的门面类
+ */
 public class MQFaultStrategy {
     private final static InternalLogger log = ClientLogger.getLog();
     private final LatencyFaultTolerance<String> latencyFaultTolerance = new LatencyFaultToleranceImpl();
 
     private boolean sendLatencyFaultEnable = false;
 
+    /**
+     * 根据currentLatency本次消息发送的延迟时间，从latencyMax尾
+     * 部向前找到第一个比currentLatency小的索引index，如果没有找到，
+     * 则返回0。然后根据这个索引从notAvailable-Duration数组中取出对
+     * 应的时间，在这个时长内，Broker将设置为不可用
+     */
     private long[] latencyMax = {50L, 100L, 550L, 1000L, 2000L, 3000L, 15000L};
     private long[] notAvailableDuration = {0L, 0L, 30000L, 60000L, 120000L, 180000L, 600000L};
 
@@ -56,7 +65,7 @@ public class MQFaultStrategy {
     }
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
-        // 发送延迟故障启用
+        // 发送延迟故障启用，默认为false
         if (this.sendLatencyFaultEnable) {
             try {
                 // 获取一个index

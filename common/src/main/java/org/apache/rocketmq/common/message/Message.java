@@ -27,6 +27,10 @@ public class Message implements Serializable {
 
     private String topic;
     private int flag;
+    // 扩展属性
+    // tags:消息tag 用户消息过滤
+    // keys:消息索引键 用空格隔开，可以根据这个key快速检索消息
+    //
     private Map<String, String> properties;
     private byte[] body;
     private String transactionId;

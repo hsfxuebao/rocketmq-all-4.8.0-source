@@ -227,6 +227,7 @@ public class MQClientAPIImpl {
             if (addrs != null) {
                 if (!addrs.equals(this.nameSrvAddr)) {
                     log.info("name server address changed, old=" + this.nameSrvAddr + ", new=" + addrs);
+                    // todo
                     this.updateNameServerAddressList(addrs);
                     this.nameSrvAddr = addrs;
                     return nameSrvAddr;
