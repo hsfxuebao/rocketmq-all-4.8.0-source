@@ -56,18 +56,23 @@ public class MQFaultStrategy {
     }
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
+        // 发送延迟故障启用
         if (this.sendLatencyFaultEnable) {
             try {
+                // 获取一个index
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
                 for (int i = 0; i < tpInfo.getMessageQueueList().size(); i++) {
                     int pos = Math.abs(index++) % tpInfo.getMessageQueueList().size();
                     if (pos < 0)
                         pos = 0;
                     MessageQueue mq = tpInfo.getMessageQueueList().get(pos);
+                    // 选取的这个broker是可用的 直接返回
                     if (latencyFaultTolerance.isAvailable(mq.getBrokerName()))
                         return mq;
                 }
 
+                // 到这里 找了一圈 还是没有找到可用的broker
+                // todo 选择 距离可用时间最近的
                 final String notBestBroker = latencyFaultTolerance.pickOneAtLeast();
                 int writeQueueNums = tpInfo.getQueueIdByBroker(notBestBroker);
                 if (writeQueueNums > 0) {
@@ -87,18 +92,31 @@ public class MQFaultStrategy {
             return tpInfo.selectOneMessageQueue();
         }
 
+        // todo
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 
     public void updateFaultItem(final String brokerName, final long currentLatency, boolean isolation) {
+        // 是否开启延迟故障容错
         if (this.sendLatencyFaultEnable) {
+            // todo 计算不可用持续时间
             long duration = computeNotAvailableDuration(isolation ? 30000 : currentLatency);
+            // todo 存储
             this.latencyFaultTolerance.updateFaultItem(brokerName, currentLatency, duration);
         }
     }
 
+
+    /**
+     * 计算不可用持续时间
+     * @param currentLatency 当前延迟
+     */
     private long computeNotAvailableDuration(final long currentLatency) {
+        // latencyMax = {50L, 100L, 550L, 1000L, 2000L, 3000L, 15000L};
+        // notAvailableDuration = {0L, 0L, 30000L, 60000L, 120000L, 180000L, 600000L};
+        // 倒着遍历
         for (int i = latencyMax.length - 1; i >= 0; i--) {
+            // 如果延迟大于某个时间，就返回对应服务不可用时间，可以看出来，响应延迟100ms以下是没有问题的
             if (currentLatency >= latencyMax[i])
                 return this.notAvailableDuration[i];
         }

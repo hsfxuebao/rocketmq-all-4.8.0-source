@@ -25,6 +25,7 @@ public class ThreadLocalIndex {
 
     public int getAndIncrement() {
         Integer index = this.threadLocalIndex.get();
+        // 如果不存在就创建  然后设置到threadLocalIndex中
         if (null == index) {
             index = Math.abs(random.nextInt());
             this.threadLocalIndex.set(index);
