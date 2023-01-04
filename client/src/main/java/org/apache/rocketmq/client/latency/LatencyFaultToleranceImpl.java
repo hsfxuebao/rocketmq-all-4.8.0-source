@@ -56,6 +56,7 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
 
     @Override
     public boolean isAvailable(final String name) {
+        //
         final FaultItem faultItem = this.faultItemTable.get(name);
         if (faultItem != null) {
             return faultItem.isAvailable();
@@ -114,6 +115,7 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
     class FaultItem implements Comparable<FaultItem> {
         // 条目唯一键，这里是brokerName
         private final String name;
+        // todo currentLatency 和startTimestamp  被volatile修饰
         // 本次消息发送的延迟时间
         private volatile long currentLatency;
         // 故障规避的开始时间
@@ -152,6 +154,7 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
         }
 
         public boolean isAvailable() {
+            // startTimeStamp为当前系统时间加上需要规避的时长
             return (System.currentTimeMillis() - startTimestamp) >= 0;
         }
 

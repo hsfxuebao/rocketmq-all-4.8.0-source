@@ -156,6 +156,7 @@ public abstract class NettyRemotingAbstract {
             switch (cmd.getType()) {
                 // 请求消息
                 case REQUEST_COMMAND:
+                    // todo
                     processRequestCommand(ctx, cmd);
                     break;
                 // 响应消息
@@ -207,6 +208,7 @@ public abstract class NettyRemotingAbstract {
                             @Override
                             public void callback(RemotingCommand response) {
                                 doAfterRpcHooks(RemotingHelper.parseChannelRemoteAddr(ctx.channel()), cmd, response);
+                                // 不是 单向
                                 if (!cmd.isOnewayRPC()) {
                                     if (response != null) {
                                         response.setOpaque(opaque);
@@ -223,11 +225,14 @@ public abstract class NettyRemotingAbstract {
                                 }
                             }
                         };
+                        // 异步netty请求处理器
                         if (pair.getObject1() instanceof AsyncNettyRequestProcessor) {
                             AsyncNettyRequestProcessor processor = (AsyncNettyRequestProcessor)pair.getObject1();
                             processor.asyncProcessRequest(ctx, cmd, callback);
                         } else {
+                            // 不是 异步请求处理器
                             NettyRequestProcessor processor = pair.getObject1();
+                            // todo
                             RemotingCommand response = processor.processRequest(ctx, cmd);
                             callback.callback(response);
                         }

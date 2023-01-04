@@ -747,6 +747,16 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         }
     }
 
+    /**
+     * 发送消息
+     * @param msg 待发送消息
+     * @param mq    消息将发送到该消息队列上
+     * @param communicationMode 消息发送模式，同步 异步 单向
+     * @param sendCallback  异步消息回调函数
+     * @param topicPublishInfo  主题路由信息
+     * @param timeout   消息发送超时时间
+     * @return
+     */
     private SendResult sendKernelImpl(final Message msg,
         final MessageQueue mq,
         final CommunicationMode communicationMode,
@@ -754,6 +764,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         final TopicPublishInfo topicPublishInfo,
         final long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         long beginStartTime = System.currentTimeMillis();
+
+        // 根据MessageQueue获取Broker的网络地址
         String brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());
         if (null == brokerAddr) {
             tryToFindTopicPublishInfo(mq.getTopic());
@@ -767,7 +779,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             byte[] prevBody = msg.getBody();
             try {
                 //for MessageBatch,ID has been set in the generating process
-                // 给消息设置唯一id
+                // 给消息设置全局唯一id， 对于MessageBatch在生成过程中已设置了id
                 if (!(msg instanceof MessageBatch)) {
                     MessageClientIDSetter.setUniqID(msg);
                 }
@@ -839,13 +851,13 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 requestHeader.setDefaultTopicQueueNums(this.defaultMQProducer.getDefaultTopicQueueNums());
                 // 队列id
                 requestHeader.setQueueId(mq.getQueueId());
-                // 系统标记
+                // 消息系统标记
                 requestHeader.setSysFlag(sysFlag);
-                // 设置发送时间
+                // 消息发送时间
                 requestHeader.setBornTimestamp(System.currentTimeMillis());
-                // 消息flag
+                // 消息标记（RocketMQ对消息标记不做任何处理，供应用程序使用）
                 requestHeader.setFlag(msg.getFlag());
-                // 设置属性
+                // 设置扩展属性
                 requestHeader.setProperties(MessageDecoder.messageProperties2String(msg.getProperties()));
                 requestHeader.setReconsumeTimes(0);
                 requestHeader.setUnitMode(this.isUnitMode());
@@ -935,6 +947,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         break;
                 }
 
+                // 是否注册了消息发送钩子函数
                 if (this.hasSendMessageHook()) {
                     context.setSendResult(sendResult);
                     this.executeSendMessageHookAfter(context);

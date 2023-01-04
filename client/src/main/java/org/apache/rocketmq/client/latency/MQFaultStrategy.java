@@ -105,6 +105,14 @@ public class MQFaultStrategy {
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 
+    /**
+     *
+     * @param brokerName broker名称
+     * @param currentLatency    本次消息发送的延迟时间
+     * @param isolation 是否规避broker
+     *                      若为true则使用30s计算broker故障规避时长，
+     *                      若为false则使用本次消息发送延时计算broker故障规避时长
+     */
     public void updateFaultItem(final String brokerName, final long currentLatency, boolean isolation) {
         // 是否开启延迟故障容错
         if (this.sendLatencyFaultEnable) {
