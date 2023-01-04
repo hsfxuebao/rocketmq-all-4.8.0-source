@@ -82,8 +82,9 @@ public class NamesrvStartup {
             return null;
         }
 
-        // 创建NamesrvConfig
+        // todo 创建NamesrvConfig
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
+        // todo 创建NamesrvConfig
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
         // 设置监听端口号9876
         nettyServerConfig.setListenPort(9876);

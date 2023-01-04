@@ -29,6 +29,7 @@ import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
  * 包含两部分内容，一是broker 地址信息，二是messagequeue 对应哪个broker上面
  */
 public class TopicRouteData extends RemotingSerializable {
+    // 顺序消息配置内容，来自kvConfig
     private String orderTopicConf;
     // topic队列元数据
     private List<QueueData> queueDatas;

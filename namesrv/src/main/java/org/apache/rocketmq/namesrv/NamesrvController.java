@@ -88,7 +88,7 @@ public class NamesrvController {
         this.remotingExecutor =
             Executors.newFixedThreadPool(nettyServerConfig.getServerWorkerThreads(), new ThreadFactoryImpl("RemotingExecutorThread_"));
 
-        // 注册processer
+        // todo 注册processer
         this.registerProcessor();
 
         // 任务调度线程池 用来扫描掉线的broker  默认10s
@@ -96,10 +96,12 @@ public class NamesrvController {
 
             @Override
             public void run() {
+                // todo
                 NamesrvController.this.routeInfoManager.scanNotActiveBroker();
             }
         }, 5, 10, TimeUnit.SECONDS);
 
+        // 任务调度线程池，每隔10s 打印一次kv配置
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
