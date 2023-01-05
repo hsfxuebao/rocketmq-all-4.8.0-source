@@ -875,12 +875,12 @@ public class BrokerController {
     }
 
     public void start() throws Exception {
-        // 启动消息存储相关组件
+        // todo 启动消息存储相关组件
         if (this.messageStore != null) {
             this.messageStore.start();
         }
 
-        // 启动 remotingServer，其实就是启动一个netty服务，用来接收producer传来的消息
+        // todo 启动 remotingServer，其实就是启动一个netty服务，用来接收producer传来的消息
         if (this.remotingServer != null) {
             this.remotingServer.start();
         }
@@ -898,6 +898,7 @@ public class BrokerController {
             this.brokerOuterAPI.start();
         }
 
+        // todo 处理拉请求挂起服务
         if (this.pullRequestHoldService != null) {
             this.pullRequestHoldService.start();
         }

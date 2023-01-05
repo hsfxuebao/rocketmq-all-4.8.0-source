@@ -59,8 +59,12 @@ public class MessageDecoder {
 //        + 4 // 13 RECONSUMETIMES
 //        + 8; // 14 Prepared Transaction Offset
 
+    /**
+     * // 4字节ip地址 + 4字节端口号 + 8字节消息偏移量
+     */
     public static String createMessageId(final ByteBuffer input, final ByteBuffer addr, final long offset) {
         input.flip();
+
         int msgIDLength = addr.limit() == 8 ? 16 : 28;
         input.limit(msgIDLength);
 

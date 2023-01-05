@@ -156,8 +156,11 @@ public class DefaultMessageStore implements MessageStore {
 
         this.indexService.start();
 
+        // 消息分发处理
         this.dispatcherList = new LinkedList<>();
+        // 写入 ConsumeQueue 文件
         this.dispatcherList.addLast(new CommitLogDispatcherBuildConsumeQueue());
+        // 写入 Index 文件
         this.dispatcherList.addLast(new CommitLogDispatcherBuildIndex());
 
         File file = new File(StorePathConfigHelper.getLockFile(messageStoreConfig.getStorePathRootDir()));
@@ -236,6 +239,7 @@ public class DefaultMessageStore implements MessageStore {
              * 3. Calculate the reput offset according to the consume queue;
              * 4. Make sure the fall-behind messages to be dispatched before starting the commitlog, especially when the broker role are automatically changed.
              */
+            // 处理 maxPhysicalPosInLogicQueue 的值
             long maxPhysicalPosInLogicQueue = commitLog.getMinOffset();
             for (ConcurrentMap<Integer, ConsumeQueue> maps : this.consumeQueueTable.values()) {
                 for (ConsumeQueue logic : maps.values()) {
@@ -262,6 +266,7 @@ public class DefaultMessageStore implements MessageStore {
             log.info("[SetReputOffset] maxPhysicalPosInLogicQueue={} clMinOffset={} clMaxOffset={} clConfirmedOffset={}",
                 maxPhysicalPosInLogicQueue, this.commitLog.getMinOffset(), this.commitLog.getMaxOffset(), this.commitLog.getConfirmOffset());
             this.reputMessageService.setReputFromOffset(maxPhysicalPosInLogicQueue);
+            // todo 消息分发操作，启动新线程来处理
             this.reputMessageService.start();
 
             /**
@@ -357,11 +362,13 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     private PutMessageStatus checkMessage(MessageExtBrokerInner msg) {
+        // 消息主题长度超过127个字符、
         if (msg.getTopic().length() > Byte.MAX_VALUE) {
             log.warn("putMessage message topic length too long " + msg.getTopic().length());
             return PutMessageStatus.MESSAGE_ILLEGAL;
         }
 
+        // 消息属性长度超过32767个字符
         if (msg.getPropertiesString() != null && msg.getPropertiesString().length() > Short.MAX_VALUE) {
             log.warn("putMessage message properties length too long " + msg.getPropertiesString().length());
             return PutMessageStatus.MESSAGE_ILLEGAL;
@@ -485,12 +492,14 @@ public class DefaultMessageStore implements MessageStore {
             return new PutMessageResult(checkStoreStatus, null);
         }
 
+        // 检查消息 长度等
         PutMessageStatus msgCheckStatus = this.checkMessage(msg);
         if (msgCheckStatus == PutMessageStatus.MESSAGE_ILLEGAL) {
             return new PutMessageResult(msgCheckStatus, null);
         }
 
         long beginTime = this.getSystemClock().now();
+        // todo 保存到 commitLog
         PutMessageResult result = this.commitLog.putMessage(msg);
         long elapsedTime = this.getSystemClock().now() - beginTime;
         if (elapsedTime > 500) {
@@ -580,11 +589,13 @@ public class DefaultMessageStore implements MessageStore {
 
         final long maxOffsetPy = this.commitLog.getMaxOffset();
 
+        // todo 根据topic与queueId一个ConsumeQueue，consumeQueue记录的是消息在commitLog的位置
         ConsumeQueue consumeQueue = findConsumeQueue(topic, queueId);
         if (consumeQueue != null) {
             minOffset = consumeQueue.getMinOffsetInQueue();
             maxOffset = consumeQueue.getMaxOffsetInQueue();
 
+            // 判断 offset 是否符合要求
             if (maxOffset == 0) {
                 status = GetMessageStatus.NO_MESSAGE_IN_QUEUE;
                 nextBeginOffset = nextOffsetCorrection(offset, 0);
@@ -602,6 +613,7 @@ public class DefaultMessageStore implements MessageStore {
                     nextBeginOffset = nextOffsetCorrection(offset, maxOffset);
                 }
             } else {
+                // 从 consumerQueue 文件中获取消息
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
@@ -655,6 +667,7 @@ public class DefaultMessageStore implements MessageStore {
                                 continue;
                             }
 
+                            // todo 从 commitLong 获取消息
                             SelectMappedBufferResult selectResult = this.commitLog.getMessage(offsetPy, sizePy);
                             if (null == selectResult) {
                                 if (getResult.getBufferTotalSize() == 0) {
@@ -716,6 +729,7 @@ public class DefaultMessageStore implements MessageStore {
         long elapsedTime = this.getSystemClock().now() - beginTime;
         this.storeStatsService.setGetMessageEntireTimeMax(elapsedTime);
 
+        // 又是处理 offset
         getResult.setStatus(status);
         getResult.setNextBeginOffset(nextBeginOffset);
         getResult.setMaxOffset(maxOffset);
@@ -1507,8 +1521,16 @@ public class DefaultMessageStore implements MessageStore {
         return runningFlags;
     }
 
+    /**
+     * 分发操作
+     * @param req
+     */
     public void doDispatch(DispatchRequest req) {
+        // 进行分发操作，dispatcherList 包含两个对象：
+        // 1. CommitLogDispatcherBuildConsumeQueue：写入 ConsumeQueue 文件
+        // 2. CommitLogDispatcherBuildIndex：写入 Index 文件
         for (CommitLogDispatcher dispatcher : this.dispatcherList) {
+            // todo
             dispatcher.dispatch(req);
         }
     }
@@ -1567,6 +1589,9 @@ public class DefaultMessageStore implements MessageStore {
         }, 6, TimeUnit.SECONDS);
     }
 
+    /**
+     * consumerQueue 文件分发的构建器
+     */
     class CommitLogDispatcherBuildConsumeQueue implements CommitLogDispatcher {
 
         @Override
@@ -1575,6 +1600,7 @@ public class DefaultMessageStore implements MessageStore {
             switch (tranType) {
                 case MessageSysFlag.TRANSACTION_NOT_TYPE:
                 case MessageSysFlag.TRANSACTION_COMMIT_TYPE:
+                    // todo 将消息在commitLog文件的位置、tags等信息写入ConsumerQueue文件
                     DefaultMessageStore.this.putMessagePositionInfo(request);
                     break;
                 case MessageSysFlag.TRANSACTION_PREPARED_TYPE:
@@ -1584,11 +1610,15 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * indexFile 文件分发的构建器
+     */
     class CommitLogDispatcherBuildIndex implements CommitLogDispatcher {
 
         @Override
         public void dispatch(DispatchRequest request) {
             if (DefaultMessageStore.this.messageStoreConfig.isMessageIndexEnable()) {
+                // todo
                 DefaultMessageStore.this.indexService.buildIndex(request);
             }
         }
@@ -1924,6 +1954,7 @@ public class DefaultMessageStore implements MessageStore {
         }
 
         private void doReput() {
+            // 处理 reputFromOffset
             if (this.reputFromOffset < DefaultMessageStore.this.commitLog.getMinOffset()) {
                 log.warn("The reputFromOffset={} is smaller than minPyOffset={}, this usually indicate that the dispatch behind too much and the commitlog has expired.",
                     this.reputFromOffset, DefaultMessageStore.this.commitLog.getMinOffset());
@@ -1936,22 +1967,27 @@ public class DefaultMessageStore implements MessageStore {
                     break;
                 }
 
+                // todo 从CommitLog中获取需要进行转发的消息
                 SelectMappedBufferResult result = DefaultMessageStore.this.commitLog.getData(reputFromOffset);
                 if (result != null) {
                     try {
                         this.reputFromOffset = result.getStartOffset();
 
                         for (int readSize = 0; readSize < result.getSize() && doNext; ) {
+                            // 检验数据
                             DispatchRequest dispatchRequest =
                                 DefaultMessageStore.this.commitLog.checkMessageAndReturnSize(result.getByteBuffer(), false, false);
                             int size = dispatchRequest.getBufferSize() == -1 ? dispatchRequest.getMsgSize() : dispatchRequest.getBufferSize();
 
                             if (dispatchRequest.isSuccess()) {
                                 if (size > 0) {
+                                    // todo 分发消息 就是把消息的相关写入ConsumeQueue与IndexFile两个文件中
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
+                                    // 长轮询：如果有消息到了主节点，并且开启了长轮询
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                         && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()) {
+                                        // 调用NotifyMessageArrivingListener的arriving方法
                                         DefaultMessageStore.this.messageArrivingListener.arriving(dispatchRequest.getTopic(),
                                             dispatchRequest.getQueueId(), dispatchRequest.getConsumeQueueOffset() + 1,
                                             dispatchRequest.getTagsCode(), dispatchRequest.getStoreTimestamp(),
@@ -2000,11 +2036,14 @@ public class DefaultMessageStore implements MessageStore {
 
         @Override
         public void run() {
+
             DefaultMessageStore.log.info(this.getServiceName() + " service started");
 
             while (!this.isStopped()) {
                 try {
+                    // 休眠1ms
                     Thread.sleep(1);
+                    // todo 调用的是 doReput() 方法
                     this.doReput();
                 } catch (Exception e) {
                     DefaultMessageStore.log.warn(this.getServiceName() + " service has exception. ", e);
