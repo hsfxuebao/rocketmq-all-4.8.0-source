@@ -28,6 +28,7 @@ public interface AppendMessageCallback {
      * After message serialization, write MapedByteBuffer
      *
      * @return How many bytes to write
+     * 只是将消息追加到内存中
      */
     AppendMessageResult doAppend(final long fileFromOffset, final ByteBuffer byteBuffer,
         final int maxBlank, final MessageExtBrokerInner msg);

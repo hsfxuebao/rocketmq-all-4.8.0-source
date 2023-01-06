@@ -41,9 +41,12 @@ public abstract class ReferenceResource {
     }
 
     public void shutdown(final long intervalForcibly) {
+        // 关闭MappedFile
         if (this.available) {
             this.available = false;
+            // 初次关闭的时间戳
             this.firstShutdownTimestamp = System.currentTimeMillis();
+            // todo 尝试释放资源
             this.release();
         } else if (this.getRefCount() > 0) {
             if ((System.currentTimeMillis() - this.firstShutdownTimestamp) >= intervalForcibly) {
@@ -59,7 +62,7 @@ public abstract class ReferenceResource {
             return;
 
         synchronized (this) {
-
+            // todo
             this.cleanupOver = this.cleanup(value);
         }
     }
@@ -70,6 +73,8 @@ public abstract class ReferenceResource {
 
     public abstract boolean cleanup(final long currentRef);
 
+    // 判断是否清理完成，判断标准是引用次数小于、等于0并
+    //且cleanupOver为true
     public boolean isCleanupOver() {
         return this.refCount.get() <= 0 && this.cleanupOver;
     }

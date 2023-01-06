@@ -34,12 +34,23 @@ public class AppendMessageResult {
     private long logicsOffset;
     private long pagecacheRT = 0;
 
+    // 批量发送消息时的消息条数
     private int msgNum = 1;
 
     public AppendMessageResult(AppendMessageStatus status) {
         this(status, 0, 0, "", 0, 0, 0);
     }
 
+    /**
+     *
+     * @param status 追加消息结果
+     * @param wroteOffset   消息的物理偏移量
+     * @param wroteBytes
+     * @param msgId 消息id
+     * @param storeTimestamp 消息存储时间戳
+     * @param logicsOffset 消息消费队列的逻辑偏移量 类似数组下标
+     * @param pagecacheRT 写入页缓存的响应时间
+     */
     public AppendMessageResult(AppendMessageStatus status, long wroteOffset, int wroteBytes, String msgId,
         long storeTimestamp, long logicsOffset, long pagecacheRT) {
         this.status = status;

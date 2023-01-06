@@ -902,6 +902,7 @@ public class CommitLog {
             elapsedTimeInLock = this.defaultMessageStore.getSystemClock().now() - beginLockTimestamp;
             beginTimeInLock = 0;
         } finally {
+            // 释放putMessageLock 锁
             putMessageLock.unlock();
         }
 
@@ -919,7 +920,9 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).incrementAndGet();
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).addAndGet(result.getWroteBytes());
 
+        // todo 磁盘刷新
         handleDiskFlush(result, putMessageResult, msg);
+        // todo 高可用
         handleHA(result, putMessageResult, msg);
 
         return putMessageResult;
@@ -1536,6 +1539,7 @@ public class CommitLog {
             return msgStoreItemMemory;
         }
 
+        // 只是将消息追加到内存中
         public AppendMessageResult doAppend(final long fileFromOffset, final ByteBuffer byteBuffer, final int maxBlank,
             final MessageExtBrokerInner msgInner) {
             // STORETIMESTAMP + STOREHOSTADDRESS + OFFSET <br>
@@ -1616,7 +1620,7 @@ public class CommitLog {
             }
 
             // Determines whether there is sufficient free space
-            // 消息长度+END_FILE_MIN_BLANK_LENGTH 大于commitLog的空闲空间，则返回END_OF_FILE
+            // todo 消息长度+END_FILE_MIN_BLANK_LENGTH 大于commitLog的空闲空间，则返回END_OF_FILE
             if ((msgLen + END_FILE_MIN_BLANK_LENGTH) > maxBlank) {
                 this.resetByteBuffer(this.msgStoreItemMemory, maxBlank);
                 // 1 TOTALSIZE  4字节存储当前文件的剩余空间
@@ -1632,6 +1636,7 @@ public class CommitLog {
             }
 
             // Initialization of storage space
+            // 初始化存储空间
             this.resetByteBuffer(msgStoreItemMemory, msgLen);
             // 1 TOTALSIZE
             this.msgStoreItemMemory.putInt(msgLen);
@@ -1679,6 +1684,7 @@ public class CommitLog {
             // Write messages to the queue buffer
             byteBuffer.put(this.msgStoreItemMemory.array(), 0, msgLen);
 
+            // 创建AppendMessageResult
             AppendMessageResult result = new AppendMessageResult(AppendMessageStatus.PUT_OK, wroteOffset, msgLen, msgId,
                 msgInner.getStoreTimestamp(), queueOffset, CommitLog.this.defaultMessageStore.now() - beginTimeMills);
 
@@ -1689,6 +1695,7 @@ public class CommitLog {
                 case MessageSysFlag.TRANSACTION_NOT_TYPE:
                 case MessageSysFlag.TRANSACTION_COMMIT_TYPE:
                     // The next update ConsumeQueue information
+                    // 更新消息队列的逻辑偏移量
                     CommitLog.this.topicQueueTable.put(key, ++queueOffset);
                     break;
                 default:
