@@ -1166,6 +1166,12 @@ public class CommitLog {
         return -1;
     }
 
+    /**
+     * 获取当前CommitLog目录的最小偏移量，
+     * 首先获取目录下的第一个
+     * 文件，如果该文件可用，则返回该文件的起始偏移量，
+     * 否则返回下一个文件的起始偏移量
+     */
     public long getMinOffset() {
         MappedFile mappedFile = this.mappedFileQueue.getFirstMappedFile();
         if (mappedFile != null) {
@@ -1179,16 +1185,33 @@ public class CommitLog {
         return -1;
     }
 
+    /**
+     * 根据偏移量与消息长度查找消息。
+     *
+     * 首先根据偏移找到文件所在的
+     * 物理偏移量，然后用offset与文件长度取余，得到在文件内的偏移
+     * 量，从该偏移量读取size长度的内容并返回。如果只根据消息偏移量
+     * 查找消息，则首先找到文件内的偏移量，然后尝试读取4字节，获取消
+     * 息的实际长度，最后读取指定字节
+     */
     public SelectMappedBufferResult getMessage(final long offset, final int size) {
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
+        // todo 根据消息偏移量offset查找MappedFile
         MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, offset == 0);
         if (mappedFile != null) {
             int pos = (int) (offset % mappedFileSize);
+            // 读取offset对应文件内容
             return mappedFile.selectMappedBuffer(pos, size);
         }
         return null;
     }
 
+    /**
+     * 根据offset返回下一个文件的起始偏移量。
+     * 获取一个文件的大小，减去offset % mappedFileSize，回到下一文件的起始偏移量
+     * @param offset
+     * @return
+     */
     public long rollNextFile(final long offset) {
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
         return offset + mappedFileSize - offset % mappedFileSize;
