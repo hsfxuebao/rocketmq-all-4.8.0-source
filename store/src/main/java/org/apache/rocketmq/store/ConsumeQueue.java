@@ -425,6 +425,7 @@ public class ConsumeQueue {
                         topic, queueId, request.getCommitLogOffset());
                 }
             }
+            // todo
             boolean result = this.putMessagePositionInfo(request.getCommitLogOffset(),
                 request.getMsgSize(), tagsCode, request.getConsumeQueueOffset());
             if (result) {
@@ -460,6 +461,10 @@ public class ConsumeQueue {
             return true;
         }
 
+        // 依次将消息偏移量、消息长度、tag哈希码写入
+        //ByteBuffer，并根据consumeQueueOffset计算ConsumeQueue中的物理
+        //地址，将内容追加到ConsumeQueue的内存映射文件中（本操作只追
+        //加，不刷盘），ConsumeQueue的刷盘方式固定为异步刷盘
         this.byteBufferIndex.flip();
         this.byteBufferIndex.limit(CQ_STORE_UNIT_SIZE);
         this.byteBufferIndex.putLong(offset);

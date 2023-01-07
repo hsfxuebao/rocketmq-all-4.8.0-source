@@ -265,6 +265,9 @@ public class DefaultMessageStore implements MessageStore {
             }
             log.info("[SetReputOffset] maxPhysicalPosInLogicQueue={} clMinOffset={} clMaxOffset={} clConfirmedOffset={}",
                 maxPhysicalPosInLogicQueue, this.commitLog.getMinOffset(), this.commitLog.getMaxOffset(), this.commitLog.getConfirmOffset());
+            // todo 该参数的含义是
+            //ReputMessageService从哪个物理偏移量开始转发消息给ConsumeQueue
+            //和Index文件
             this.reputMessageService.setReputFromOffset(maxPhysicalPosInLogicQueue);
             // todo 消息分发操作，启动新线程来处理
             this.reputMessageService.start();
@@ -1226,6 +1229,14 @@ public class DefaultMessageStore implements MessageStore {
         return null;
     }
 
+    /**
+     * 根据消息主题与队列ID，先获取对应的ConsumeQueue文件
+     *
+     *
+     * 因为每一个消息主题对应一个ConsumeQueue目
+     * 录，主题下每一个消息队列对应一个文件夹，所以取出该文件夹最后
+     * 的ConsumeQueue文件即可
+     */
     public ConsumeQueue findConsumeQueue(String topic, int queueId) {
         ConcurrentMap<Integer, ConsumeQueue> map = consumeQueueTable.get(topic);
         if (null == map) {
@@ -1536,7 +1547,9 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     public void putMessagePositionInfo(DispatchRequest dispatchRequest) {
+        // todo 根据消息主题与队列ID，先获取对应的ConsumeQueue文件
         ConsumeQueue cq = this.findConsumeQueue(dispatchRequest.getTopic(), dispatchRequest.getQueueId());
+        // todo 将内容追加到consumeQueue的内存映射文件中
         cq.putMessagePositionInfoWrapper(dispatchRequest);
     }
 
@@ -1617,6 +1630,8 @@ public class DefaultMessageStore implements MessageStore {
 
         @Override
         public void dispatch(DispatchRequest request) {
+            // 如果messsageIndexEnable设置为true，则调用
+            //IndexService#buildIndex构建哈希索引，否则忽略本次转发任务
             if (DefaultMessageStore.this.messageStoreConfig.isMessageIndexEnable()) {
                 // todo
                 DefaultMessageStore.this.indexService.buildIndex(request);
@@ -1967,14 +1982,15 @@ public class DefaultMessageStore implements MessageStore {
                     break;
                 }
 
-                // todo 从CommitLog中获取需要进行转发的消息
+                // todo 从CommitLog中获取需要进行转发的消息 返回reputFromOffset偏移量开始的全部有效数据
                 SelectMappedBufferResult result = DefaultMessageStore.this.commitLog.getData(reputFromOffset);
                 if (result != null) {
                     try {
                         this.reputFromOffset = result.getStartOffset();
 
+                        // 遍历每一个消息
                         for (int readSize = 0; readSize < result.getSize() && doNext; ) {
-                            // 检验数据
+                            // todo 检验数据
                             DispatchRequest dispatchRequest =
                                 DefaultMessageStore.this.commitLog.checkMessageAndReturnSize(result.getByteBuffer(), false, false);
                             int size = dispatchRequest.getBufferSize() == -1 ? dispatchRequest.getMsgSize() : dispatchRequest.getBufferSize();

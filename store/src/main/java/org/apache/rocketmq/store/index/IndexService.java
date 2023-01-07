@@ -199,12 +199,16 @@ public class IndexService {
     }
 
     public void buildIndex(DispatchRequest req) {
+        // 获取或创建Index文件
         IndexFile indexFile = retryGetAndCreateIndexFile();
         if (indexFile != null) {
+            // 获取文件最大的物理偏移量
             long endPhyOffset = indexFile.getEndPhyOffset();
             DispatchRequest msg = req;
             String topic = msg.getTopic();
             String keys = msg.getKeys();
+            // 如果该消息的物理偏移量小于Index文件中的物理偏移量，则说明
+            //是重复数据，忽略本次索引构建
             if (msg.getCommitLogOffset() < endPhyOffset) {
                 return;
             }
@@ -219,7 +223,9 @@ public class IndexService {
                     return;
             }
 
+            // 如果消息的唯一键不为空，则添加到哈希索引中，以便加速根据唯一键检索消息
             if (req.getUniqKey() != null) {
+                // todo 构建索引键
                 indexFile = putKey(indexFile, msg, buildKey(topic, req.getUniqKey()));
                 if (indexFile == null) {
                     log.error("putKey error commitlog {} uniqkey {}", req.getCommitLogOffset(), req.getUniqKey());
@@ -227,11 +233,14 @@ public class IndexService {
                 }
             }
 
+            // 构建索引键，RocketMQ支持为同一个消息建立多个索
+            //引，多个索引键用空格分开
             if (keys != null && keys.length() > 0) {
                 String[] keyset = keys.split(MessageConst.KEY_SEPARATOR);
                 for (int i = 0; i < keyset.length; i++) {
                     String key = keyset[i];
                     if (key.length() > 0) {
+                        // todo
                         indexFile = putKey(indexFile, msg, buildKey(topic, key));
                         if (indexFile == null) {
                             log.error("putKey error commitlog {} uniqkey {}", req.getCommitLogOffset(), req.getUniqKey());
@@ -246,6 +255,7 @@ public class IndexService {
     }
 
     private IndexFile putKey(IndexFile indexFile, DispatchRequest msg, String idxKey) {
+        // todo
         for (boolean ok = indexFile.putKey(idxKey, msg.getCommitLogOffset(), msg.getStoreTimestamp()); !ok; ) {
             log.warn("Index file [" + indexFile.getFileName() + "] is full, trying to create another one");
 
