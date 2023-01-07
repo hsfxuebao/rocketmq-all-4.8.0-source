@@ -309,9 +309,13 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             // todo 调用asyncPutMessage 发送普通消息 消息存储
             putMessageResult = this.brokerController.getMessageStore().asyncPutMessage(msgInner);
         }
+        // todo
         return handlePutMessageResultFuture(putMessageResult, response, request, msgInner, responseHeader, mqtraceContext, ctx, queueIdInt);
     }
 
+    /**
+     * 异步编程
+     */
     private CompletableFuture<RemotingCommand> handlePutMessageResultFuture(CompletableFuture<PutMessageResult> putMessageResult,
                                                                             RemotingCommand response,
                                                                             RemotingCommand request,
@@ -320,6 +324,14 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                                                                             SendMessageContext sendMessageContext,
                                                                             ChannelHandlerContext ctx,
                                                                             int queueIdInt) {
+
+        /**
+         * 先定义CompletableFuture的thenApply方法，该方
+         * 法并不会立即执行，而是在CompletableFuture的complete方法被调用
+         * 时才会执行，这就是异步实现的妙处，类似事件的通知。complete方
+         * 法会在什么时候会被调用呢？带着这个问题我们继续上面流程的跟
+         * 踪
+         */
         return putMessageResult.thenApply((r) ->
             handlePutMessageResult(r, response, request, msgInner, responseHeader, sendMessageContext, ctx, queueIdInt)
         );

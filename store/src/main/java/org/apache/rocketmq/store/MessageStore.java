@@ -63,6 +63,7 @@ public interface MessageStore {
      * @return a CompletableFuture for the result of store operation
      */
     default CompletableFuture<PutMessageResult> asyncPutMessage(final MessageExtBrokerInner msg) {
+        // todo
         return CompletableFuture.completedFuture(putMessage(msg));
     }
 

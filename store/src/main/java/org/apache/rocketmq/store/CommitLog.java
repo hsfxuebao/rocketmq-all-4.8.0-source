@@ -710,8 +710,13 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).incrementAndGet();
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).addAndGet(result.getWroteBytes());
 
+        // todo 消息首先进入pagecache，然后执行刷盘操作，
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
+        // todo 接着调用submitReplicaRequest方法将消息提交到HaService,进行数据复制
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
+
+        // todo 这里使用了ComplateFuture的thenCombine方法，将刷盘、复制当成一
+        // todo 个联合任务执行，这里设置消息追加的最终状态
         return flushResultFuture.thenCombine(replicaResultFuture, (flushStatus, replicaStatus) -> {
             if (flushStatus != PutMessageStatus.PUT_OK) {
                 putMessageResult.setPutMessageStatus(flushStatus);
@@ -1004,8 +1009,14 @@ public class CommitLog {
             HAService service = this.defaultMessageStore.getHaService();
             if (messageExt.isWaitStoreMsgOK()) {
                 if (service.isSlaveOK(result.getWroteBytes() + result.getWroteOffset())) {
+
                     GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(),
                             this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
+                    // todo 向HaService提交GroupCommitRequest对象后
+                    // 返回的并不是同步结果，而是一个CompletableFuture<PutMessageStatus>对
+                    //象，该对象的thenApply方法是在上文提到的
+                    //handlePutMessageResultFuture方法中定义的，而CompletableFuture
+                    //的complete方法会在消息被复制到从节点后被调用，其核心代码在GroupCommitRequest中
                     service.putRequest(request);
                     service.getWaitNotifyObject().wakeupAll();
                     return request.future();
@@ -1510,6 +1521,7 @@ public class CommitLog {
         }
 
         public void wakeupCustomer(final PutMessageStatus putMessageStatus) {
+            // todo 在这里调用
             this.flushOKFuture.complete(putMessageStatus);
         }
 
