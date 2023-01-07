@@ -157,14 +157,22 @@ public class MappedFileQueue {
         }
     }
 
+    /**
+     * 加载CommitLog文件
+     *
+     * 加载${ROCKET_HOME}/store/commitlog目录下所有文件并按照文件名进行排序。，
+     */
     public boolean load() {
+        // 加载storePath 下的文件
         File dir = new File(this.storePath);
         File[] files = dir.listFiles();
         if (files != null) {
             // ascending order
+            // 排序
             Arrays.sort(files);
             for (File file : files) {
 
+                // 如果文件与配置文件的单个文件大小不一致，将忽略该目录下的所有文件
                 if (file.length() != this.mappedFileSize) {
                     log.warn(file + "\t" + file.length()
                         + " length not matched message store config value, please check it manually");
@@ -172,6 +180,9 @@ public class MappedFileQueue {
                 }
 
                 try {
+                    // 然后创建MappedFile对象。注意load()方法将
+                    // wrotePosition、flushedPosition、committedPosition三个指针都设
+                    // 置为文件大小
                     MappedFile mappedFile = new MappedFile(file.getPath(), mappedFileSize);
 
                     mappedFile.setWrotePosition(this.mappedFileSize);

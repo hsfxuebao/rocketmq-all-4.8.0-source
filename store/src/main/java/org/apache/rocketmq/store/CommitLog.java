@@ -164,10 +164,14 @@ public class CommitLog {
 
     /**
      * When the normal exit, data recovery, all memory data have been flush
+     * broker正常停止，文件恢复
      */
     public void recoverNormally(long maxPhyOffsetOfConsumeQueue) {
+
+        // checkCRCOnRecover参数用于在进行文件恢复时查找消息是否验证CRC
         boolean checkCRCOnRecover = this.defaultMessageStore.getMessageStoreConfig().isCheckCRCOnRecover();
         final List<MappedFile> mappedFiles = this.mappedFileQueue.getMappedFiles();
+        // 从倒数第3个文件开始恢复，如果不足3个文件，则从第一个文件开始恢复
         if (!mappedFiles.isEmpty()) {
             // Began to recover from the last third file
             int index = mappedFiles.size() - 3;
@@ -176,24 +180,37 @@ public class CommitLog {
 
             MappedFile mappedFile = mappedFiles.get(index);
             ByteBuffer byteBuffer = mappedFile.sliceByteBuffer();
+
+            // processOffset为CommitLog文件已确认的物理偏移量，
+            // 等于mappedFile.getFileFromOffset加上mappedFileOffset
             long processOffset = mappedFile.getFileFromOffset();
+            // 为当前文件已校验通过的物理偏移量
             long mappedFileOffset = 0;
+
+            // 遍历CommitLog文件
             while (true) {
+                // 取出一条消息
                 DispatchRequest dispatchRequest = this.checkMessageAndReturnSize(byteBuffer, checkCRCOnRecover);
                 int size = dispatchRequest.getMsgSize();
                 // Normal data
+                // 如果查找结果为true并且消息的长度大于0，表示消息正确，mappedFileOffset指针
+                //向前移动本条消息的长度
                 if (dispatchRequest.isSuccess() && size > 0) {
                     mappedFileOffset += size;
                 }
                 // Come the end of the file, switch to the next file Since the
                 // return 0 representatives met last hole,
                 // this can not be included in truncate offset
+                // 如果查找结果为true并且消息的长度等于0，表示已到该文件的末尾，
+                //
                 else if (dispatchRequest.isSuccess() && size == 0) {
                     index++;
+                    // 没有下一个文件了，跳出循环
                     if (index >= mappedFiles.size()) {
                         // Current branch can not happen
                         log.info("recover last 3 physics file over, last mapped file " + mappedFile.getFileName());
                         break;
+                    // 如果还有下一个文件，则重置processOffset、mappedFileOffset并重复上述步骤
                     } else {
                         mappedFile = mappedFiles.get(index);
                         byteBuffer = mappedFile.sliceByteBuffer();
@@ -203,18 +220,21 @@ public class CommitLog {
                     }
                 }
                 // Intermediate file read error
+                // 如果查找结果为false，表明该文件未填满所有消息，则跳出循环，结束遍历文件
                 else if (!dispatchRequest.isSuccess()) {
                     log.info("recover physics file end, " + mappedFile.getFileName());
                     break;
                 }
             }
 
+            // 更新MappedFileQueue的flushedWhere和committedPosition指针
             processOffset += mappedFileOffset;
             this.mappedFileQueue.setFlushedWhere(processOffset);
             this.mappedFileQueue.setCommittedWhere(processOffset);
             this.mappedFileQueue.truncateDirtyFiles(processOffset);
 
             // Clear ConsumeQueue redundant data
+            // 删除offset之后的所有文件
             if (maxPhyOffsetOfConsumeQueue >= processOffset) {
                 log.warn("maxPhyOffsetOfConsumeQueue({}) >= processOffset({}), truncate dirty logic files", maxPhyOffsetOfConsumeQueue, processOffset);
                 this.defaultMessageStore.truncateDirtyLogicFiles(processOffset);
@@ -424,6 +444,15 @@ public class CommitLog {
         this.confirmOffset = phyOffset;
     }
 
+    /**
+     * broker异常关闭 文件 恢复
+     *
+     * 异常文件恢复与正常停止文件恢复的
+     * 步骤基本相同，主要差别有两个：首先，Broker正常停止默认从倒数
+     * 第三个文件开始恢复，而异常停止则需要从最后一个文件倒序推进，
+     * 找到第一个消息存储正常的文件；其次，如果CommitLog目录没有消息
+     * 文件，在ConsuneQueue目录下存在的文件则需要销毁。
+     */
     @Deprecated
     public void recoverAbnormally(long maxPhyOffsetOfConsumeQueue) {
         // recover by the minimum time stamp
@@ -435,6 +464,7 @@ public class CommitLog {
             MappedFile mappedFile = null;
             for (; index >= 0; index--) {
                 mappedFile = mappedFiles.get(index);
+                // todo 判断消息文件是否正确
                 if (this.isMappedFileMatchedRecover(mappedFile)) {
                     log.info("recover from this mapped file " + mappedFile.getFileName());
                     break;
@@ -449,7 +479,10 @@ public class CommitLog {
             ByteBuffer byteBuffer = mappedFile.sliceByteBuffer();
             long processOffset = mappedFile.getFileFromOffset();
             long mappedFileOffset = 0;
+            // 则遍历MappedFile中的消息，验证消息的合法性，并将消息重新转发到ConsumeQueue与
+            //Index文件
             while (true) {
+                // 取出消息
                 DispatchRequest dispatchRequest = this.checkMessageAndReturnSize(byteBuffer, checkCRCOnRecover);
                 int size = dispatchRequest.getMsgSize();
 
@@ -460,9 +493,11 @@ public class CommitLog {
 
                         if (this.defaultMessageStore.getMessageStoreConfig().isDuplicationEnable()) {
                             if (dispatchRequest.getCommitLogOffset() < this.defaultMessageStore.getConfirmOffset()) {
+                                // todo 消息分发
                                 this.defaultMessageStore.doDispatch(dispatchRequest);
                             }
                         } else {
+                            // 消息分发
                             this.defaultMessageStore.doDispatch(dispatchRequest);
                         }
                     }
@@ -502,8 +537,12 @@ public class CommitLog {
             }
         }
         // Commitlog case files are deleted
+        // 如果未找到有效的MappedFile，则设置CommitLog目录的
+        //flushedWhere、committedWhere指针都为0，并销毁ConsumeQueue文
+        //件
         else {
             log.warn("The commitlog files are deleted, and delete the consume queue files");
+
             this.mappedFileQueue.setFlushedWhere(0);
             this.mappedFileQueue.setCommittedWhere(0);
             this.defaultMessageStore.destroyLogics();
@@ -513,11 +552,14 @@ public class CommitLog {
     private boolean isMappedFileMatchedRecover(final MappedFile mappedFile) {
         ByteBuffer byteBuffer = mappedFile.sliceByteBuffer();
 
+        // 判断文件的魔数
         int magicCode = byteBuffer.getInt(MessageDecoder.MESSAGE_MAGIC_CODE_POSTION);
         if (magicCode != MESSAGE_MAGIC_CODE) {
             return false;
         }
 
+        // 如果文件中第一条消息的存储时间为0  则返回false
+        // 说明该消息的存储文件中未存储任何消息
         int sysFlag = byteBuffer.getInt(MessageDecoder.SYSFLAG_POSITION);
         int bornhostLength = (sysFlag & MessageSysFlag.BORNHOST_V6_FLAG) == 0 ? 8 : 20;
         int msgStoreTimePos = 4 + 4 + 4 + 4 + 4 + 8 + 8 + 4 + 8 + bornhostLength;
@@ -526,8 +568,10 @@ public class CommitLog {
             return false;
         }
 
+        // 对比文件第一条消息的时间戳与检测点
         if (this.defaultMessageStore.getMessageStoreConfig().isMessageIndexEnable()
             && this.defaultMessageStore.getMessageStoreConfig().isMessageIndexSafe()) {
+            // todo
             if (storeTimestamp <= this.defaultMessageStore.getStoreCheckpoint().getMinTimestampIndex()) {
                 log.info("find check timestamp, {} {}",
                     storeTimestamp,
@@ -535,6 +579,8 @@ public class CommitLog {
                 return true;
             }
         } else {
+            // todo 如果文件第一条消息的时间戳小于文件检测点，说明该文件的部分消息是可靠的，
+            // 则从该文件开始恢复
             if (storeTimestamp <= this.defaultMessageStore.getStoreCheckpoint().getMinTimestamp()) {
                 log.info("find check timestamp, {} {}",
                     storeTimestamp,

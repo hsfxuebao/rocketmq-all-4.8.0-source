@@ -272,6 +272,7 @@ public class ConsumeQueue {
                     long tagsCode = byteBuffer.getLong();
 
                     if (0 == i) {
+                        // 如果文件的头部偏移量大于offset则直接删除该文件
                         if (offset >= phyOffet) {
                             this.mappedFileQueue.deleteLastMappedFile();
                             break;
@@ -280,6 +281,7 @@ public class ConsumeQueue {
                             mappedFile.setWrotePosition(pos);
                             mappedFile.setCommittedPosition(pos);
                             mappedFile.setFlushedPosition(pos);
+                            // 设置maxPhysicOffset
                             this.maxPhysicOffset = offset + size;
                             // This maybe not take effect, when not every consume queue has extend file.
                             if (isExtAddr(tagsCode)) {
@@ -289,7 +291,7 @@ public class ConsumeQueue {
                     } else {
 
                         if (offset >= 0 && size > 0) {
-
+                            // 如果文件的偏移量大于offset则直接返回
                             if (offset >= phyOffet) {
                                 return;
                             }
@@ -298,6 +300,7 @@ public class ConsumeQueue {
                             mappedFile.setWrotePosition(pos);
                             mappedFile.setCommittedPosition(pos);
                             mappedFile.setFlushedPosition(pos);
+                            // 设置maxPhysicOffset
                             this.maxPhysicOffset = offset + size;
                             if (isExtAddr(tagsCode)) {
                                 maxExtAddr = tagsCode;

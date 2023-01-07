@@ -268,7 +268,7 @@ public class BrokerController {
             }
         }
 
-        // 加载磁盘上的记录，如commitLog写入的位置、消费者主题/队列的信息
+        // todo 加载磁盘上的记录，如commitLog写入的位置、消费者主题/队列的信息
         result = result && this.messageStore.load();
 
         if (result) {

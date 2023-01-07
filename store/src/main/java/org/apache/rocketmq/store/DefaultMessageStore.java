@@ -171,8 +171,10 @@ public class DefaultMessageStore implements MessageStore {
     public void truncateDirtyLogicFiles(long phyOffset) {
         ConcurrentMap<String, ConcurrentMap<Integer, ConsumeQueue>> tables = DefaultMessageStore.this.consumeQueueTable;
 
+        // 遍历
         for (ConcurrentMap<Integer, ConsumeQueue> maps : tables.values()) {
             for (ConsumeQueue logic : maps.values()) {
+                // todo
                 logic.truncateDirtyLogicFiles(phyOffset);
             }
         }
@@ -185,25 +187,32 @@ public class DefaultMessageStore implements MessageStore {
         boolean result = true;
 
         try {
+            // todo 判断上一次是否正常退出
             boolean lastExitOK = !this.isTempFileExist();
             log.info("last shutdown {}", lastExitOK ? "normally" : "abnormally");
 
+            // 加载延迟队列
             if (null != scheduleMessageService) {
                 result = result && this.scheduleMessageService.load();
             }
 
             // load Commit Log
+            // todo 加载commitLog文件
             result = result && this.commitLog.load();
 
             // load Consume Queue
+            // todo 加载消息消费队列
             result = result && this.loadConsumeQueue();
 
             if (result) {
+                // 加载并存储checkpoint文件 主要用于记录CommitLog文件、ConsumeQueue文件、Inde文件的刷盘点
                 this.storeCheckpoint =
                     new StoreCheckpoint(StorePathConfigHelper.getStoreCheckpoint(this.messageStoreConfig.getStorePathRootDir()));
 
+                // todo 加载Index文件
                 this.indexService.load(lastExitOK);
 
+                // todo 恢复文件（根据broker是否为正常停止，执行不同的恢复策略）
                 this.recover(lastExitOK);
 
                 log.info("load over, and the max phy offset = {}", this.getMaxPhyOffset());
@@ -1398,7 +1407,17 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 判断是否存在临时文件
+     *
+     * 其实现机制是Broker在启动
+     * 时创建${ROCKET_HOME}/store/abort文件，在退出时通过注册JVM钩子
+     * 函数删除abort文件。如果下一次启动时存在abort文件。说明Broker
+     * 是异常退出的，CommitLog与ConsumeQueue数据有可能不一致，需要进
+     * 行修复
+     */
     private boolean isTempFileExist() {
+
         String fileName = StorePathConfigHelper.getAbortFile(this.messageStoreConfig.getStorePathRootDir());
         File file = new File(fileName);
         return file.exists();
@@ -1444,12 +1463,16 @@ public class DefaultMessageStore implements MessageStore {
     private void recover(final boolean lastExitOK) {
         long maxPhyOffsetOfConsumeQueue = this.recoverConsumeQueue();
 
+
         if (lastExitOK) {
+            // todo broker正常停止, 文件恢复机制
             this.commitLog.recoverNormally(maxPhyOffsetOfConsumeQueue);
         } else {
+            // todo broker异常停止, 文件恢复机制
             this.commitLog.recoverAbnormally(maxPhyOffsetOfConsumeQueue);
         }
 
+        // todo 恢复TopicQueueTable
         this.recoverTopicQueueTable();
     }
 
@@ -1486,7 +1509,13 @@ public class DefaultMessageStore implements MessageStore {
         return maxPhysicOffset;
     }
 
+    /**
+     * 恢复ConsumeQueue文件后,将在CommitLog实例中保存每
+     * 个消息消费队列当前的存储逻辑偏移量，这也是消息中不仅存储主
+     * 题、消息队列ID还存储了消息队列偏移量的关键所在。
+     */
     public void recoverTopicQueueTable() {
+
         HashMap<String/* topic-queueid */, Long/* offset */> table = new HashMap<String, Long>(1024);
         long minPhyOffset = this.commitLog.getMinOffset();
         for (ConcurrentMap<Integer, ConsumeQueue> maps : this.consumeQueueTable.values()) {
