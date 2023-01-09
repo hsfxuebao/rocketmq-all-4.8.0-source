@@ -17,6 +17,11 @@
 package org.apache.rocketmq.common.consumer;
 
 public enum ConsumeFromWhere {
+    /**
+     * 此处分为两种情况，如果磁盘消息
+     * 未过期且未被删除，则从最小偏移量开始消费。如果磁盘已过期
+     * 并被删除，则从最大偏移量开始消费
+     */
     CONSUME_FROM_LAST_OFFSET,
 
     @Deprecated
@@ -25,6 +30,8 @@ public enum ConsumeFromWhere {
     CONSUME_FROM_MIN_OFFSET,
     @Deprecated
     CONSUME_FROM_MAX_OFFSET,
+    // 从队列当前最小偏移量开始消费
     CONSUME_FROM_FIRST_OFFSET,
+    // 从消费者指定时间戳开始消费
     CONSUME_FROM_TIMESTAMP,
 }

@@ -76,6 +76,7 @@ public class Consumer {
         /*
          *  Launch the consumer instance.
          */
+        // todo
         consumer.start();
 
         System.out.printf("Consumer Started.%n");

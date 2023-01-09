@@ -250,7 +250,7 @@ public class MQClientInstance {
                     // todo 开启任务调度
                     this.startScheduledTask();
                     // Start pull service
-                    // 开启 拉取服务
+                    // todo 开启 拉取服务
                     this.pullMessageService.start();
                     // Start rebalance service
                     // 开启平衡服务

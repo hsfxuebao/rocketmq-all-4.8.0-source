@@ -513,6 +513,8 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
 
                     @Override
                     public void onSuccess(PullResult pullResult) {
+                        // todo 调用pullAPIWrapper的processPullResult，将消息字节
+                        //数组解码成消息列表并填充msgFoundList，对消息进行消息过滤（TAG模式）
                         PullResult userPullResult = DefaultMQPullConsumerImpl.this.pullAPIWrapper.processPullResult(mq, pullResult, subscriptionData);
                         resetTopic(userPullResult.getMsgFoundList());
                         pullCallback.onSuccess(userPullResult);
