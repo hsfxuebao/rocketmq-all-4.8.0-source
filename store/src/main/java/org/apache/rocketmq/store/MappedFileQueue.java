@@ -369,6 +369,16 @@ public class MappedFileQueue {
         }
     }
 
+    /**
+     * 删除文件
+     *
+     * 从倒数第二个文件开始遍历，计算文件的最大存活时间，即文件的最后一次更新时间+文件存活时间（默认
+     * 72小时），如果当前时间大于文件的最大存活时间或需要强制删除文
+     * 件（当磁盘使用超过设定的阈值）时，执行MappedFile#destory方
+     * 法，清除MappedFile占有的相关资源，如果执行成功，将该文件加入
+     * 待删除文件列表中，最后统一执行File#delete方法将文件从物理磁盘
+     * 中删除。
+     */
     public int deleteExpiredFileByTime(final long expiredTime,
         final int deleteFilesInterval,
         final long intervalForcibly,
@@ -384,8 +394,12 @@ public class MappedFileQueue {
         if (null != mfs) {
             for (int i = 0; i < mfsLength; i++) {
                 MappedFile mappedFile = (MappedFile) mfs[i];
+                // 计算文件的最大存活时间，即文件的最后一次更新时间+文件存活时间（默认72小时）
                 long liveMaxTimestamp = mappedFile.getLastModifiedTimestamp() + expiredTime;
+                // 如果当前时间大于文件的最大存活时间 或 需要强制删除文件（当磁盘使用超过设定的阈值）时
                 if (System.currentTimeMillis() >= liveMaxTimestamp || cleanImmediately) {
+
+                    // 执行destroy方法
                     if (mappedFile.destroy(intervalForcibly)) {
                         files.add(mappedFile);
                         deleteCount++;
@@ -410,6 +424,7 @@ public class MappedFileQueue {
             }
         }
 
+        // todo 统一执行File#delete方法将文件从物理磁盘中删除
         deleteExpiredFile(files);
 
         return deleteCount;
