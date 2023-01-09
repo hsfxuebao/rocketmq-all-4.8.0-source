@@ -2113,7 +2113,9 @@ public class DefaultMessageStore implements MessageStore {
                                     // 长轮询：如果有消息到了主节点，并且开启了长轮询
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                         && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()) {
-                                        // 调用NotifyMessageArrivingListener的arriving方法
+                                        // todo 调用NotifyMessageArrivingListener的arriving方法
+                                        // 唤醒挂起线程，判断当前消费队列最大偏移量是否大于待拉取偏移量，如果
+                                        //大于则拉取消息。长轮询模式实现了准实时消息拉取
                                         DefaultMessageStore.this.messageArrivingListener.arriving(dispatchRequest.getTopic(),
                                             dispatchRequest.getQueueId(), dispatchRequest.getConsumeQueueOffset() + 1,
                                             dispatchRequest.getTagsCode(), dispatchRequest.getStoreTimestamp(),
