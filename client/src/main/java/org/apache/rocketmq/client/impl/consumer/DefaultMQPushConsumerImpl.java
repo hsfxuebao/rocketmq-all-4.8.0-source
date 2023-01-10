@@ -1073,6 +1073,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     @Override
     public void doRebalance() {
         if (!this.pause) {
+            // todo 该方法主要遍历订阅信息对每个主题的队列进行重新负载
             this.rebalanceImpl.doRebalance(this.isConsumeOrderly());
         }
     }

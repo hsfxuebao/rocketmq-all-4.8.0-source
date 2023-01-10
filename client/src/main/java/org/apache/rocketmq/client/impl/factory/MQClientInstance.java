@@ -113,6 +113,7 @@ public class MQClientInstance {
     });
     private final ClientRemotingProcessor clientRemotingProcessor;
     private final PullMessageService pullMessageService;
+    // 负载均衡服务
     private final RebalanceService rebalanceService;
     private final DefaultMQProducer defaultMQProducer;
     private final ConsumerStatsManager consumerStatsManager;
@@ -253,7 +254,7 @@ public class MQClientInstance {
                     // todo 开启 拉取服务
                     this.pullMessageService.start();
                     // Start rebalance service
-                    // 开启平衡服务
+                    // todo 开启平衡服务
                     this.rebalanceService.start();
                     // Start push service
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
@@ -1009,10 +1010,12 @@ public class MQClientInstance {
     }
 
     public void doRebalance() {
+        // MQClientIinstance遍历已注册的消费者，对消费者执行doRebalance()方法
         for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
                 try {
+                    // todo
                     impl.doRebalance();
                 } catch (Throwable e) {
                     log.error("doRebalance exception", e);
