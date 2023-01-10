@@ -37,15 +37,22 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
  * Local storage implementation
+ *
+ * 广播模式消息消费进度存储在消费者本地
  */
 public class LocalFileOffsetStore implements OffsetStore {
+    // 消息进度存储目录
     public final static String LOCAL_OFFSET_STORE_DIR = System.getProperty(
         "rocketmq.client.localOffsetStoreDir",
         System.getProperty("user.home") + File.separator + ".rocketmq_offsets");
     private final static InternalLogger log = ClientLogger.getLog();
+    // 消息客户端
     private final MQClientInstance mQClientFactory;
+    // 消息消费组
     private final String groupName;
+    // 消息进度存储文件
     private final String storePath;
+    // 消息消费进度（内存）
     private ConcurrentMap<MessageQueue, AtomicLong> offsetTable =
         new ConcurrentHashMap<MessageQueue, AtomicLong>();
 
@@ -58,6 +65,12 @@ public class LocalFileOffsetStore implements OffsetStore {
             "offsets.json";
     }
 
+    /**
+     * OffsetSerializeWrapper内部就是ConcurrentMap<MessageQueue,
+     * AtomicLong>offsetTable数据结构的封装，readLocalOffset方法首先
+     * 从storePath中尝试加载内容，如果读取的内容为空，尝试从
+     * storePath+".bak"中加载，如果还是未找到内容，则返回null
+     */
     @Override
     public void load() throws MQClientException {
         OffsetSerializeWrapper offsetSerializeWrapper = this.readLocalOffset();
@@ -128,6 +141,14 @@ public class LocalFileOffsetStore implements OffsetStore {
         return -1;
     }
 
+    /**
+     * 持久化消息进度就是将ConcurrentMap<MessageQueue,
+     * AtomicLong> offsetTable序列化到磁盘文件中。代码不容易理解，我
+     * 们只需要知道是什么时候持久化消息消费进度的。原来在
+     * MQClientInstance中会启动一个定时任务，默认每5s持久化消息消费
+     * 进度一次，可通过persistConsumerOffsetInterval进行设置
+     * @param mqs
+     */
     @Override
     public void persistAll(Set<MessageQueue> mqs) {
         if (null == mqs || mqs.isEmpty())

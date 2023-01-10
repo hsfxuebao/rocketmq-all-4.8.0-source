@@ -87,7 +87,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                                                                   RemotingCommand request) throws RemotingCommandException {
         final SendMessageContext mqtraceContext;
         switch (request.getCode()) {
+            //
             case RequestCode.CONSUMER_SEND_MSG_BACK:
+                // todo
                 return this.asyncConsumerSendMsgBack(ctx, request);
             default:
                 SendMessageRequestHeader requestHeader = parseRequestHeader(request);
@@ -121,6 +123,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             ConsumeMessageContext context = buildConsumeMessageContext(namespace, requestHeader, request);
             this.executeConsumeMessageHookAfter(context);
         }
+        // todo 获取消费组的订阅配置信息，如果配置信息为空，返回
+        //配置组信息不存在错误，如果重试队列数量小于1，则直接返回成功，
+        //说明该消费组不支持重试
         SubscriptionGroupConfig subscriptionGroupConfig =
             this.brokerController.getSubscriptionGroupManager().findSubscriptionGroupConfig(requestHeader.getGroup());
         if (null == subscriptionGroupConfig) {
@@ -141,6 +146,8 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             return CompletableFuture.completedFuture(response);
         }
 
+        // todo 创建重试主题，重试主题名称为%RETRY%+消费组名称，
+        //从重试队列中随机选择一个队列，并构建TopicConfig主题配置信息
         String newTopic = MixAll.getRetryTopic(requestHeader.getGroup());
         int queueIdInt = Math.abs(this.random.nextInt() % 99999999) % subscriptionGroupConfig.getRetryQueueNums();
         int topicSysFlag = 0;
@@ -163,6 +170,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             response.setRemark(String.format("the topic[%s] sending message is forbidden", newTopic));
             return CompletableFuture.completedFuture(response);
         }
+        // 根据消息物理偏移量从CommitLog文件中获取消息，同时将消息的主题存入属性
         MessageExt msgExt = this.brokerController.getMessageStore().lookMessageByOffset(requestHeader.getOffset());
         if (null == msgExt) {
             response.setCode(ResponseCode.SYSTEM_ERROR);
@@ -178,6 +186,10 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
         int delayLevel = requestHeader.getDelayLevel();
 
+        // todo 设置消息重试次数，如果消息重试次数已超过
+        //maxReconsumeTimes，再次改变newTopic主题为DLQ（"%DLQ%"），该主
+        //题的权限为只写，说明消息一旦进入DLQ队列，RocketMQ将不负责再次
+        //调度消费了，需要人工干预
         int maxReconsumeTimes = subscriptionGroupConfig.getRetryMaxTimes();
         if (request.getVersion() >= MQVersion.Version.V3_4_9.ordinal()) {
             maxReconsumeTimes = requestHeader.getMaxReconsumeTimes();
@@ -197,12 +209,17 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                 return CompletableFuture.completedFuture(response);
             }
         } else {
+            // 突出消息重试机制，该机制的实现依托于定时任务
             if (0 == delayLevel) {
                 delayLevel = 3 + msgExt.getReconsumeTimes();
             }
             msgExt.setDelayTimeLevel(delayLevel);
         }
 
+        // todo 根据原先的消息创建一个新的消息对象，重试消息会拥
+        //有一个唯一消息ID（msgId）并存入CommitLog文件。这里不会更新原
+        //先的消息，而是会将原先的主题、消息ID存入消息属性，主题名称为
+        //重试主题，其他属性与原消息保持一致
         MessageExtBrokerInner msgInner = new MessageExtBrokerInner();
         msgInner.setTopic(newTopic);
         msgInner.setBody(msgExt.getBody());
@@ -220,6 +237,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
         String originMsgId = MessageAccessor.getOriginMessageId(msgExt);
         MessageAccessor.setOriginMessageId(msgInner, UtilAll.isBlank(originMsgId) ? msgExt.getMsgId() : originMsgId);
+
         CompletableFuture<PutMessageResult> putMessageResult = this.brokerController.getMessageStore().asyncPutMessage(msgInner);
         return putMessageResult.thenApply((r) -> {
             if (r != null) {
