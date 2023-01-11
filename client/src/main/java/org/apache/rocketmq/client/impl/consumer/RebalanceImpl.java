@@ -82,6 +82,7 @@ public abstract class RebalanceImpl {
     }
 
     public void unlockAll(final boolean oneway) {
+        // todo
         HashMap<String, Set<MessageQueue>> brokerMqs = this.buildProcessQueueTableByBrokerName();
 
         for (final Map.Entry<String, Set<MessageQueue>> entry : brokerMqs.entrySet()) {
@@ -101,6 +102,9 @@ public abstract class RebalanceImpl {
                 try {
                     this.mQClientFactory.getMQClientAPIImpl().unlockBatchMQ(findBrokerResult.getBrokerAddr(), requestBody, 1000, oneway);
 
+                    // 遍历当前处理队列中的消息消费队列，如果当前消费者
+                    //不持该消息队列的锁，则将处理队列锁的状态设置为false，暂停该消
+                    //息消费队列的消息拉取与消息消费
                     for (MessageQueue mq : mqs) {
                         ProcessQueue processQueue = this.processQueueTable.get(mq);
                         if (processQueue != null) {
@@ -117,6 +121,8 @@ public abstract class RebalanceImpl {
 
     private HashMap<String/* brokerName */, Set<MessageQueue>> buildProcessQueueTableByBrokerName() {
         HashMap<String, Set<MessageQueue>> result = new HashMap<String, Set<MessageQueue>>();
+        // 表示将消息队列按照Broker组织成Map<String/*brokerName*,Set<MessageQueue>>，方便下一步向
+        // Broker发送锁定消息队列请求
         for (MessageQueue mq : this.processQueueTable.keySet()) {
             Set<MessageQueue> mqs = result.get(mq.getBrokerName());
             if (null == mqs) {
@@ -139,8 +145,12 @@ public abstract class RebalanceImpl {
             requestBody.getMqSet().add(mq);
 
             try {
+                // 向Broker（主节点）发送锁定消息队列，该方法会返回
+                //成功被当前消费者锁定的消息消费队列
                 Set<MessageQueue> lockedMq =
                     this.mQClientFactory.getMQClientAPIImpl().lockBatchMQ(findBrokerResult.getBrokerAddr(), requestBody, 1000);
+                // 将成功锁定的消息消费队列对应的处理队列设置为锁定
+                //状态，同时更新加锁时间
                 for (MessageQueue mmqq : lockedMq) {
                     ProcessQueue processQueue = this.processQueueTable.get(mmqq);
                     if (processQueue != null) {
@@ -407,6 +417,14 @@ public abstract class RebalanceImpl {
         List<PullRequest> pullRequestList = new ArrayList<PullRequest>();
         for (MessageQueue mq : mqSet) {
             if (!this.processQueueTable.containsKey(mq)) {
+
+                /**
+                 * 经过消息队列重新负载（分配）后，分配到新的消息队列时，首
+                 * 先需要尝试向Broker发起锁定该消息队列的请求，如果返回加锁成
+                 * 功，则创建该消息队列的拉取任务，否则跳过，等待其他消费者释放
+                 * 该消息队列的锁，然后在下一次队列重新负载时再尝试加锁
+                 */
+                // 顺序消息
                 if (isOrder && !this.lock(mq)) {
                     log.warn("doRebalance, {}, add a new mq failed, {}, because lock failed", consumerGroup, mq);
                     continue;
