@@ -1058,9 +1058,11 @@ public class MQClientAPIImpl {
         final HeartbeatData heartbeatData,
         final long timeoutMillis
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        // request 的 code 为 HEART_BEAT
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.HEART_BEAT, null);
         request.setLanguage(clientConfig.getLanguage());
         request.setBody(heartbeatData.encode());
+        // 同步调用
         RemotingCommand response = this.remotingClient.invokeSync(addr, request, timeoutMillis);
         assert response != null;
         switch (response.getCode()) {
@@ -1391,6 +1393,7 @@ public class MQClientAPIImpl {
     public TopicRouteData getDefaultTopicRouteInfoFromNameServer(final String topic, final long timeoutMillis)
         throws RemotingException, MQClientException, InterruptedException {
 
+        // todo
         return getTopicRouteInfoFromNameServer(topic, timeoutMillis, false);
     }
 
@@ -1414,6 +1417,7 @@ public class MQClientAPIImpl {
         requestHeader.setTopic(topic);
 
         // 创建RemotingCommand 创建请求实体
+        // 发送请求的 code 为 GET_ROUTEINFO_BY_TOPIC
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.GET_ROUTEINFO_BY_TOPIC, requestHeader);
 
         // todo 进行同步调用，获取结果

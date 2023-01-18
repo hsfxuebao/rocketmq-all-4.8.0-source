@@ -246,6 +246,8 @@ public class MQClientInstance {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
                     // todo Start request-response channel
+                    // 启动远程服务，这个方法只是装配了netty客户端相关配置
+                    // todo 注意：1. 这里是netty客户端，2. 这里并没有创建连接
                     this.mQClientAPIImpl.start();
                     // Start various schedule tasks
                     // todo 开启任务调度
@@ -257,6 +259,7 @@ public class MQClientInstance {
                     // todo 开启平衡服务
                     this.rebalanceService.start();
                     // Start push service
+                    // todo 启用内部的 producer
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
                     log.info("the client factory [{}] start OK", this.clientId);
                     // 设置状态为running
@@ -304,9 +307,9 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
-                    // 清除下线broker
+                    // todo 清除下线broker
                     MQClientInstance.this.cleanOfflineBroker();
-                    // 发送心跳到所有broker上面
+                    // todo 发送心跳到所有broker上面
                     MQClientInstance.this.sendHeartbeatToAllBrokerWithLock();
                 } catch (Exception e) {
                     log.error("ScheduledTask sendHeartbeatToAllBroker exception", e);
@@ -319,6 +322,7 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
+                    // todo 持久化consumer offset 可以放在本地文件，也可以推送到 broker
                     MQClientInstance.this.persistAllConsumerOffset();
                 } catch (Exception e) {
                     log.error("ScheduledTask persistAllConsumerOffset exception", e);
@@ -331,6 +335,7 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
+                    // todo 调整线程池的线程数量，并没有用上
                     MQClientInstance.this.adjustThreadPool();
                 } catch (Exception e) {
                     log.error("ScheduledTask adjustThreadPool exception", e);
@@ -492,6 +497,7 @@ public class MQClientInstance {
     public void sendHeartbeatToAllBrokerWithLock() {
         if (this.lockHeartbeat.tryLock()) {
             try {
+                // todo
                 this.sendHeartbeatToAllBroker();
                 this.uploadFilterClassSource();
             } catch (final Exception e) {
@@ -580,6 +586,7 @@ public class MQClientInstance {
                             }
 
                             try {
+                                // todo
                                 int version = this.mQClientAPIImpl.sendHearbeat(addr, heartbeatData, 3000);
                                 if (!this.brokerVersionTable.containsKey(brokerName)) {
                                     this.brokerVersionTable.put(brokerName, new HashMap<String, Integer>(4));

@@ -199,7 +199,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                         new NettyDecoder(), // 解码
                         new IdleStateHandler(0, 0, nettyClientConfig.getClientChannelMaxIdleTimeSeconds()),
                         new NettyConnectManageHandler(), // 连接管理
-                        new NettyClientHandler());  // netty client handler 处理接收到的消息
+                        new NettyClientHandler());  // todo netty client handler 处理接收到的消息
                 }
             });
 

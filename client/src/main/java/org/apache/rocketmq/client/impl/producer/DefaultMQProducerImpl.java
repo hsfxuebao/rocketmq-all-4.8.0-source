@@ -174,6 +174,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     public void start() throws MQClientException {
+        // todo
         this.start(true);
     }
 
@@ -232,8 +233,10 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 break;
         }
 
+        // todo 发送心跳到所有broker
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
 
+        // 定时扫描异步请求的返回结果
         this.timer.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {

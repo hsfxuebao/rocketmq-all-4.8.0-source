@@ -87,9 +87,10 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
                 return this.getKVConfig(ctx, request);
             case RequestCode.DELETE_KV_CONFIG:
                 return this.deleteKVConfig(ctx, request);
+            // todo 查询broker版本信息
             case RequestCode.QUERY_DATA_VERSION:
                 return queryBrokerTopicConfig(ctx, request);
-                // 注册broker
+                // todo 注册broker
             case RequestCode.REGISTER_BROKER:
                 // 获取版本
                 Version brokerVersion = MQVersion.value2Version(request.getVersion());
@@ -101,7 +102,7 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
                 } else {
                     return this.registerBroker(ctx, request);
                 }
-                // 注销broker
+                // todo 注销broker
             case RequestCode.UNREGISTER_BROKER:
                 return this.unregisterBroker(ctx, request);
 
@@ -270,8 +271,10 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
             (QueryDataVersionRequestHeader) request.decodeCommandCustomHeader(QueryDataVersionRequestHeader.class);
         DataVersion dataVersion = DataVersion.decode(request.getBody(), DataVersion.class);
 
+        // todo 关键代码：判断版本是否发生变化
         Boolean changed = this.namesrvController.getRouteInfoManager().isBrokerTopicConfigChanged(requestHeader.getBrokerAddr(), dataVersion);
         if (!changed) {
+            // 如果没改变，就更新最后一次的上报时间为当前时间
             this.namesrvController.getRouteInfoManager().updateBrokerInfoUpdateTimestamp(requestHeader.getBrokerAddr());
         }
 
@@ -279,6 +282,7 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
         response.setCode(ResponseCode.SUCCESS);
         response.setRemark(null);
 
+        // 返回 nameServer当前的版本号
         if (nameSeverDataVersion != null) {
             response.setBody(nameSeverDataVersion.encode());
         }

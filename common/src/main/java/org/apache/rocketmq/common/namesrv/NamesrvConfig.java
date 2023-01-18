@@ -29,8 +29,7 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 public class NamesrvConfig {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
 
-    // RocketMQ 根目录 通过-
-    //Drocketmq.home.dir=path或设置环境变量ROCKETMQ_HOME可以配置
+    // RocketMQ 根目录 通过-Drocketmq.home.dir=path或设置环境变量ROCKETMQ_HOME可以配置
     //RocketMQ的主目录
     private String rocketmqHome = System.getProperty(MixAll.ROCKETMQ_HOME_PROPERTY, System.getenv(MixAll.ROCKETMQ_HOME_ENV));
     // NameServer存储kv配置属性的持久化路径

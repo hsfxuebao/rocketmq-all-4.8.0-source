@@ -31,6 +31,7 @@ public class Producer {
         /*
          * Instantiate with a producer group name.
          */
+        // 1. 创建 DefaultMQProducer 对象
         DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name");
 
         /*
@@ -44,11 +45,11 @@ public class Producer {
          * }
          * </pre>
          */
-
+        producer.setNamesrvAddr("127.0.0.1:9876");
         /*
          * Launch the instance.
          */
-        producer.setNamesrvAddr("127.0.0.1:9876");
+        // todo 2. 启动 producer
         producer.start();
 
         for (int i = 0; i < 1000; i++) {
@@ -65,6 +66,7 @@ public class Producer {
                 /*
                  * Call send message to deliver message to one of brokers.
                  */
+                // 3. 发送消息
                 SendResult sendResult = producer.send(msg);
 
                 System.out.printf("%s%n", sendResult);

@@ -153,6 +153,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * @param producerGroup Producer group, see the name-sake field.
      */
     public DefaultMQProducer(final String producerGroup) {
+        // todo
         this(null, producerGroup, null);
     }
 
@@ -213,6 +214,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     public DefaultMQProducer(final String namespace, final String producerGroup, RPCHook rpcHook) {
         this.namespace = namespace;
         this.producerGroup = producerGroup;
+        // todo
         defaultMQProducerImpl = new DefaultMQProducerImpl(this, rpcHook);
     }
 
