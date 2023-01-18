@@ -1429,7 +1429,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     public SendResult send(Message msg,
         long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
-        // todo
+        // todo 同步模式
         return this.sendDefaultImpl(msg, CommunicationMode.SYNC, null, timeout);
     }
 
