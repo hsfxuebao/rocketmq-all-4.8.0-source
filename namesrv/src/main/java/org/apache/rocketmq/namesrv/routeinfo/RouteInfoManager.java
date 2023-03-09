@@ -211,6 +211,7 @@ public class RouteInfoManager {
     }
 
     public boolean isBrokerTopicConfigChanged(final String brokerAddr, final DataVersion dataVersion) {
+        // 继续查询
         DataVersion prev = queryBrokerTopicConfig(brokerAddr);
         return null == prev || !prev.equals(dataVersion);
     }
@@ -462,7 +463,7 @@ public class RouteInfoManager {
                 RemotingUtil.closeChannel(next.getValue().getChannel());
                 it.remove();
                 log.warn("The broker channel expired, {} {}ms", next.getKey(), BROKER_CHANNEL_EXPIRED_TIME);
-                // todo
+                // todo  处理channel的关闭，这个方法里会处理其他 hashMap 的移除
                 this.onChannelDestroy(next.getKey(), next.getValue().getChannel());
             }
         }
@@ -789,9 +790,12 @@ public class RouteInfoManager {
 }
 
 class BrokerLiveInfo {
+    // 上一次心跳更新时间
     private long lastUpdateTimestamp;
     private DataVersion dataVersion;
+    // 表示网络连接的channel，由netty提供
     private Channel channel;
+    // 高可用的服务地址
     private String haServerAddr;
 
     public BrokerLiveInfo(long lastUpdateTimestamp, DataVersion dataVersion, Channel channel,

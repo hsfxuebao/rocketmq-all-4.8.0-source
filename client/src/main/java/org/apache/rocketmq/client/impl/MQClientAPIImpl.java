@@ -595,7 +595,7 @@ public class MQClientAPIImpl {
                     // 发送未成功
                     if (!responseFuture.isSendRequestOK()) {
                         MQClientException ex = new MQClientException("send request failed", responseFuture.getCause());
-                        // todo
+                        // todo 异步模式 重试逻辑
                         onExceptionImpl(brokerName, msg, timeoutMillis - cost, request, sendCallback, topicPublishInfo, instance,
                             retryTimesWhenSendFailed, times, ex, context, true, producer);
                     // 超时
@@ -673,6 +673,7 @@ public class MQClientAPIImpl {
             }
 
             try {
+                // 执行回调
                 sendCallback.onException(e);
             } catch (Exception ignored) {
             }

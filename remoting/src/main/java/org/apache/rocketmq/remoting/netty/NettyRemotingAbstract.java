@@ -261,7 +261,9 @@ public abstract class NettyRemotingAbstract {
             }
 
             try {
+                // 提交Runnable 请求
                 final RequestTask requestTask = new RequestTask(run, ctx.channel(), cmd);
+                // 获取线程池
                 pair.getObject2().submit(requestTask);
             } catch (RejectedExecutionException e) {
                 if ((System.currentTimeMillis() % 10000) == 0) {
@@ -399,6 +401,7 @@ public abstract class NettyRemotingAbstract {
      * </p>
      */
     public void scanResponseTable() {
+        // 本次要处理的返回
         final List<ResponseFuture> rfList = new LinkedList<ResponseFuture>();
         Iterator<Entry<Integer, ResponseFuture>> it = this.responseTable.entrySet().iterator();
         while (it.hasNext()) {
@@ -413,6 +416,7 @@ public abstract class NettyRemotingAbstract {
             }
         }
 
+        // 处理返回
         for (ResponseFuture rf : rfList) {
             try {
                 executeInvokeCallback(rf);
