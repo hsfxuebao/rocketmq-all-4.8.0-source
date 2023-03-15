@@ -566,7 +566,7 @@ public class MQClientAPIImpl {
 
                 if (response != null) {
                     try {
-                        // 生成发送结果
+                        // todo 生成发送结果
                         SendResult sendResult = MQClientAPIImpl.this.processSendResponse(brokerName, msg, response, addr);
                         assert sendResult != null;
                         if (context != null) {

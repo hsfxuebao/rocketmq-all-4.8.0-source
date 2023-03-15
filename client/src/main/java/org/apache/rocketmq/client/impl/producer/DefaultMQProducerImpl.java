@@ -518,6 +518,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public void send(final Message msg, final SendCallback sendCallback, final long timeout)
         throws MQClientException, RemotingException, InterruptedException {
         final long beginStartTime = System.currentTimeMillis();
+        // 异步线程池
         ExecutorService executor = this.getAsyncSenderExecutor();
         try {
             executor.submit(new Runnable() {
@@ -526,6 +527,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     long costTime = System.currentTimeMillis() - beginStartTime;
                     if (timeout > costTime) {
                         try {
+                            // todo
                             sendDefaultImpl(msg, CommunicationMode.ASYNC, sendCallback, timeout - costTime);
                         } catch (Exception e) {
                             sendCallback.onException(e);

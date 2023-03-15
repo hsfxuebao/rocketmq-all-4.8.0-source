@@ -46,6 +46,7 @@ public class Producer {
          * </pre>
          */
         producer.setNamesrvAddr("127.0.0.1:9876");
+        producer.setSendLatencyFaultEnable(true);
         /*
          * Launch the instance.
          */
