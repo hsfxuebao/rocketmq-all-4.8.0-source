@@ -248,7 +248,7 @@ public class MappedFile extends ReferenceResource {
             AppendMessageResult result;
             // 单个消息
             if (messageExt instanceof MessageExtBrokerInner) {
-                // todo
+                // todo 追加消息
                 result = cb.doAppend(this.getFileFromOffset(), byteBuffer, this.fileSize - currentPos, (MessageExtBrokerInner) messageExt);
             // 批量消息
             } else if (messageExt instanceof MessageExtBatch) {

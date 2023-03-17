@@ -450,7 +450,7 @@ public class DefaultMessageStore implements MessageStore {
         }
 
         long beginTime = this.getSystemClock().now();
-        // todo
+        // todo 存储消息
         CompletableFuture<PutMessageResult> putResultFuture = this.commitLog.asyncPutMessage(msg);
 
         putResultFuture.thenAccept((result) -> {
@@ -458,9 +458,11 @@ public class DefaultMessageStore implements MessageStore {
             if (elapsedTime > 500) {
                 log.warn("putMessage not in lock elapsed time(ms)={}, bodyLength={}", elapsedTime, msg.getBody().length);
             }
+            // 记录状态
             this.storeStatsService.setPutMessageEntireTimeMax(elapsedTime);
 
             if (null == result || !result.isOk()) {
+                // 记录状态
                 this.storeStatsService.getPutMessageFailedTimes().incrementAndGet();
             }
         });
