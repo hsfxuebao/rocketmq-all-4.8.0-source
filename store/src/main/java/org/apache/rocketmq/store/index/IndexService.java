@@ -202,7 +202,7 @@ public class IndexService {
     }
 
     public void buildIndex(DispatchRequest req) {
-        // 获取或创建Index文件
+        // todo 获取或创建Index文件
         IndexFile indexFile = retryGetAndCreateIndexFile();
         if (indexFile != null) {
             // 获取文件最大的物理偏移量
@@ -228,7 +228,7 @@ public class IndexService {
 
             // 如果消息的唯一键不为空，则添加到哈希索引中，以便加速根据唯一键检索消息
             if (req.getUniqKey() != null) {
-                // todo 构建索引键
+                // todo
                 indexFile = putKey(indexFile, msg, buildKey(topic, req.getUniqKey()));
                 if (indexFile == null) {
                     log.error("putKey error commitlog {} uniqkey {}", req.getCommitLogOffset(), req.getUniqKey());
@@ -257,16 +257,19 @@ public class IndexService {
         }
     }
 
+    // 将key放到索引文件中
     private IndexFile putKey(IndexFile indexFile, DispatchRequest msg, String idxKey) {
         // todo
         for (boolean ok = indexFile.putKey(idxKey, msg.getCommitLogOffset(), msg.getStoreTimestamp()); !ok; ) {
             log.warn("Index file [" + indexFile.getFileName() + "] is full, trying to create another one");
 
+            // 重新火球或者创建一个indexFile
             indexFile = retryGetAndCreateIndexFile();
             if (null == indexFile) {
                 return null;
             }
 
+            // 重新构建索引
             ok = indexFile.putKey(idxKey, msg.getCommitLogOffset(), msg.getStoreTimestamp());
         }
 
@@ -281,7 +284,9 @@ public class IndexService {
     public IndexFile retryGetAndCreateIndexFile() {
         IndexFile indexFile = null;
 
+        // 重试 3次
         for (int times = 0; null == indexFile && times < MAX_TRY_IDX_CREATE; times++) {
+            // todo 获取索引文件
             indexFile = this.getAndCreateLastIndexFile();
             if (null != indexFile)
                 break;
@@ -293,7 +298,7 @@ public class IndexService {
                 log.error("Interrupted", e);
             }
         }
-
+        // 没有获取到 index文件的时候
         if (null == indexFile) {
             this.defaultMessageStore.getAccessRights().makeIndexFileError();
             log.error("Mark index file cannot build flag");
@@ -309,11 +314,16 @@ public class IndexService {
         long lastUpdateIndexTimestamp = 0;
 
         {
+            // 获取 读锁
             this.readWriteLock.readLock().lock();
+            // 不为空
             if (!this.indexFileList.isEmpty()) {
+                // 获取最后一个
                 IndexFile tmp = this.indexFileList.get(this.indexFileList.size() - 1);
+                // 如果没有写满的话
                 if (!tmp.isWriteFull()) {
                     indexFile = tmp;
+                // 写满了
                 } else {
                     lastUpdateEndPhyOffset = tmp.getEndPhyOffset();
                     lastUpdateIndexTimestamp = tmp.getEndTimestamp();
@@ -324,14 +334,18 @@ public class IndexService {
             this.readWriteLock.readLock().unlock();
         }
 
+        // 新建indexFile 然后将上一个indexFile刷盘
         if (indexFile == null) {
             try {
+                // 文件名 年月日时分秒毫秒
                 String fileName =
                     this.storePath + File.separator
                         + UtilAll.timeMillisToHumanString(System.currentTimeMillis());
+                // 创建一个indexFile
                 indexFile =
                     new IndexFile(fileName, this.hashSlotNum, this.indexNum, lastUpdateEndPhyOffset,
                         lastUpdateIndexTimestamp);
+                // 获取读锁 将这个indexFile 放入集合中
                 this.readWriteLock.writeLock().lock();
                 this.indexFileList.add(indexFile);
             } catch (Exception e) {
@@ -340,11 +354,13 @@ public class IndexService {
                 this.readWriteLock.writeLock().unlock();
             }
 
+            // 开启一个 刷盘线程
             if (indexFile != null) {
                 final IndexFile flushThisFile = prevIndexFile;
                 Thread flushThread = new Thread(new Runnable() {
                     @Override
                     public void run() {
+                        // 把上一个indexFile 刷盘
                         IndexService.this.flush(flushThisFile);
                     }
                 }, "FlushIndexFileThread");

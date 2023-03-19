@@ -151,11 +151,15 @@ public class CommitLog {
         return this.getData(offset, offset == 0);
     }
 
+    // 根据offset 从MappedFile中获取数据
     public SelectMappedBufferResult getData(final long offset, final boolean returnFirstOnNotFound) {
+        // 每个MappedFile的大小 默认1G
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
+        // todo 获取对应的MappedFile
         MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, returnFirstOnNotFound);
         if (mappedFile != null) {
             int pos = (int) (offset % mappedFileSize);
+            // todo
             SelectMappedBufferResult result = mappedFile.selectMappedBuffer(pos);
             return result;
         }

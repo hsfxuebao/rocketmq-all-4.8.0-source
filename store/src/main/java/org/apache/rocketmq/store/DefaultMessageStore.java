@@ -248,7 +248,7 @@ public class DefaultMessageStore implements MessageStore {
              * 3. Calculate the reput offset according to the consume queue;
              * 4. Make sure the fall-behind messages to be dispatched before starting the commitlog, especially when the broker role are automatically changed.
              */
-            // 处理 maxPhysicalPosInLogicQueue 的值
+            // todo 处理 maxPhysicalPosInLogicQueue 的值
             long maxPhysicalPosInLogicQueue = commitLog.getMinOffset();
             for (ConcurrentMap<Integer, ConsumeQueue> maps : this.consumeQueueTable.values()) {
                 for (ConsumeQueue logic : maps.values()) {
@@ -1286,7 +1286,6 @@ public class DefaultMessageStore implements MessageStore {
     /**
      * 根据消息主题与队列ID，先获取对应的ConsumeQueue文件
      *
-     *
      * 因为每一个消息主题对应一个ConsumeQueue目
      * 录，主题下每一个消息队列对应一个文件夹，所以取出该文件夹最后
      * 的ConsumeQueue文件即可
@@ -1624,6 +1623,7 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    // 将msg的位置信息 放到consumerQueue里面
     public void putMessagePositionInfo(DispatchRequest dispatchRequest) {
         // todo 根据消息主题与队列ID，先获取对应的ConsumeQueue文件
         ConsumeQueue cq = this.findConsumeQueue(dispatchRequest.getTopic(), dispatchRequest.getQueueId());
@@ -1687,6 +1687,7 @@ public class DefaultMessageStore implements MessageStore {
 
         @Override
         public void dispatch(DispatchRequest request) {
+            // 事务
             final int tranType = MessageSysFlag.getTransactionValue(request.getSysFlag());
             switch (tranType) {
                 case MessageSysFlag.TRANSACTION_NOT_TYPE:
@@ -1694,6 +1695,7 @@ public class DefaultMessageStore implements MessageStore {
                     // todo 将消息在commitLog文件的位置、tags等信息写入ConsumerQueue文件
                     DefaultMessageStore.this.putMessagePositionInfo(request);
                     break;
+                // 如果事务还没有提交 或者 回滚了 就不需要写入consumerQueue
                 case MessageSysFlag.TRANSACTION_PREPARED_TYPE:
                 case MessageSysFlag.TRANSACTION_ROLLBACK_TYPE:
                     break;

@@ -270,15 +270,19 @@ public class MappedFile extends ReferenceResource {
     }
 
     public boolean appendMessage(final byte[] data) {
+        // 获取当前写的位置
         int currentPos = this.wrotePosition.get();
 
+        // 判断在这个MappedFile中能不能 放下
         if ((currentPos + data.length) <= this.fileSize) {
             try {
+                // 写入消息
                 this.fileChannel.position(currentPos);
                 this.fileChannel.write(ByteBuffer.wrap(data));
             } catch (Throwable e) {
                 log.error("Error occurred when append message to mappedFile.", e);
             }
+            // 重置 写入消息
             this.wrotePosition.addAndGet(data.length);
             return true;
         }
@@ -465,7 +469,9 @@ public class MappedFile extends ReferenceResource {
         return null;
     }
 
+    // 根据位置读取
     public SelectMappedBufferResult selectMappedBuffer(int pos) {
+        // 获取这个MappedFile 里面的一个read position，其实就是这个MappedFile 的一个可读位置
         int readPosition = getReadPosition();
         if (pos < readPosition && pos >= 0) {
             if (this.hold()) {

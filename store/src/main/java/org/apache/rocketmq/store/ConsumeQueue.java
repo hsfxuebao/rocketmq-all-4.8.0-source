@@ -411,8 +411,10 @@ public class ConsumeQueue {
 
     public void putMessagePositionInfoWrapper(DispatchRequest request) {
         final int maxRetries = 30;
+        // 是否可以写
         boolean canWrite = this.defaultMessageStore.getRunningFlags().isCQWriteable();
         for (int i = 0; i < maxRetries && canWrite; i++) {
+            // 获取tag
             long tagsCode = request.getTagsCode();
             if (isExtWriteEnable()) {
                 ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
@@ -428,7 +430,7 @@ public class ConsumeQueue {
                         topic, queueId, request.getCommitLogOffset());
                 }
             }
-            // todo
+            // todo 写入consumerQueue 队列中
             boolean result = this.putMessagePositionInfo(request.getCommitLogOffset(),
                 request.getMsgSize(), tagsCode, request.getConsumeQueueOffset());
             if (result) {
@@ -474,14 +476,18 @@ public class ConsumeQueue {
         this.byteBufferIndex.putInt(size);
         this.byteBufferIndex.putLong(tagsCode);
 
+        // 根据 consumeQueue offset 计算在 ConsumeQueue 的位置
         final long expectLogicOffset = cqOffset * CQ_STORE_UNIT_SIZE;
 
         MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile(expectLogicOffset);
         if (mappedFile != null) {
-
+            // 判断mappedFile 是否是第一个 且 cqOffset 不是0 且mappedFile 写位置是0
             if (mappedFile.isFirstCreateInQueue() && cqOffset != 0 && mappedFile.getWrotePosition() == 0) {
+                // 设置 最小offset
                 this.minLogicOffset = expectLogicOffset;
+                // 设置 从哪开始 offset
                 this.mappedFileQueue.setFlushedWhere(expectLogicOffset);
+                // 设置从哪开始commit
                 this.mappedFileQueue.setCommittedWhere(expectLogicOffset);
                 this.fillPreBlank(mappedFile, expectLogicOffset);
                 log.info("fill pre blank space " + mappedFile.getFileName() + " " + expectLogicOffset + " "
@@ -489,14 +495,17 @@ public class ConsumeQueue {
             }
 
             if (cqOffset != 0) {
+                // 当前在这个consumeQueue 的offset
                 long currentLogicOffset = mappedFile.getWrotePosition() + mappedFile.getFileFromOffset();
-
+                // 你现在要插入offset 比当前在这个consumeQueue 的offset要小，这个就是说明 你在找之前的位置插入，但是人家已经有东西了
+                // 要是让你插入的话 就会造成重复，所以这里不让你插入的
                 if (expectLogicOffset < currentLogicOffset) {
                     log.warn("Build  consume queue repeatedly, expectLogicOffset: {} currentLogicOffset: {} Topic: {} QID: {} Diff: {}",
                         expectLogicOffset, currentLogicOffset, this.topic, this.queueId, expectLogicOffset - currentLogicOffset);
                     return true;
                 }
 
+                // 按照正常情况下是一样大的，不一样大打印错误日志
                 if (expectLogicOffset != currentLogicOffset) {
                     LOG_ERROR.warn(
                         "[BUG]logic queue order maybe wrong, expectLogicOffset: {} currentLogicOffset: {} Topic: {} QID: {} Diff: {}",
@@ -508,7 +517,9 @@ public class ConsumeQueue {
                     );
                 }
             }
+            // 设置最大的 物理offset
             this.maxPhysicOffset = offset + size;
+            // todo 追加消息
             return mappedFile.appendMessage(this.byteBufferIndex.array());
         }
         return false;
