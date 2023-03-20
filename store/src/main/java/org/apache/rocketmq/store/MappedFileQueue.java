@@ -408,6 +408,7 @@ public class MappedFileQueue {
         final int deleteFilesInterval,
         final long intervalForcibly,
         final boolean cleanImmediately) {
+        // 拿到mappedFile的引用
         Object[] mfs = this.copyMappedFiles(0);
 
         if (null == mfs)
@@ -424,15 +425,16 @@ public class MappedFileQueue {
                 // 如果当前时间大于文件的最大存活时间 或 需要强制删除文件（当磁盘使用超过设定的阈值）时
                 if (System.currentTimeMillis() >= liveMaxTimestamp || cleanImmediately) {
 
-                    // 执行destroy方法
+                    // todo 执行destroy方法
                     if (mappedFile.destroy(intervalForcibly)) {
                         files.add(mappedFile);
                         deleteCount++;
-
+                        // 一批 最多删除10 个
                         if (files.size() >= DELETE_FILES_BATCH_MAX) {
                             break;
                         }
 
+                        // 删除间隔
                         if (deleteFilesInterval > 0 && (i + 1) < mfsLength) {
                             try {
                                 Thread.sleep(deleteFilesInterval);
@@ -455,6 +457,12 @@ public class MappedFileQueue {
         return deleteCount;
     }
 
+    /**
+     * 删除过期的file
+     * @param offset 最小offset
+     * @param unitSize 大小为20字节
+     * @return
+     */
     public int deleteExpiredFileByOffset(long offset, int unitSize) {
         Object[] mfs = this.copyMappedFiles(0);
 
@@ -467,10 +475,13 @@ public class MappedFileQueue {
             for (int i = 0; i < mfsLength; i++) {
                 boolean destroy;
                 MappedFile mappedFile = (MappedFile) mfs[i];
+                // 最后一个单元位置到这个MappedFile结束，其实就是获取最后一个单元
                 SelectMappedBufferResult result = mappedFile.selectMappedBuffer(this.mappedFileSize - unitSize);
                 if (result != null) {
+                    // 获取最大的offset
                     long maxOffsetInLogicQueue = result.getByteBuffer().getLong();
                     result.release();
+                    // 判断是否销毁 如果小于offset 就要销毁
                     destroy = maxOffsetInLogicQueue < offset;
                     if (destroy) {
                         log.info("physic min offset " + offset + ", logics in current mappedFile max offset "
@@ -484,6 +495,7 @@ public class MappedFileQueue {
                     break;
                 }
 
+                // 进行销毁
                 if (destroy && mappedFile.destroy(1000 * 60)) {
                     files.add(mappedFile);
                     deleteCount++;
@@ -492,7 +504,7 @@ public class MappedFileQueue {
                 }
             }
         }
-
+        // 删除引用
         deleteExpiredFile(files);
 
         return deleteCount;
@@ -630,10 +642,13 @@ public class MappedFileQueue {
     }
 
     public boolean retryDeleteFirstFile(final long intervalForcibly) {
+        // 获取到 第一个mappedFile
         MappedFile mappedFile = this.getFirstMappedFile();
         if (mappedFile != null) {
+            // 不可用
             if (!mappedFile.isAvailable()) {
                 log.warn("the mappedFile was destroyed once, but still alive, " + mappedFile.getFileName());
+                // 销毁
                 boolean result = mappedFile.destroy(intervalForcibly);
                 if (result) {
                     log.info("the mappedFile re delete OK, " + mappedFile.getFileName());

@@ -543,7 +543,7 @@ public class MappedFile extends ReferenceResource {
     public boolean destroy(final long intervalForcibly) {
         // todo
         this.shutdown(intervalForcibly);
-
+        // 清理结束
         if (this.isCleanupOver()) {
             try {
                 // 关闭文件通道，

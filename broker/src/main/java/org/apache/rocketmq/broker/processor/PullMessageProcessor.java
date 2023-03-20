@@ -439,7 +439,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                 // 未找到满足条件的消息
                 case ResponseCode.PULL_NOT_FOUND:
 
-                    // 如果支持挂起，就挂起当前请求
+                    // todo 如果支持挂起，就挂起当前请求
                     if (brokerAllowSuspend && hasSuspendFlag) {
                         /**
                          * 默认支持挂起，根据是否开启长轮询决定挂起方式。如果开启长

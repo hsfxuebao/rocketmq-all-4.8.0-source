@@ -90,14 +90,20 @@ public class IndexService {
         return true;
     }
 
+    /**
+     * 删除 过期文件
+     * @param offset 最小的offset 小于这个offset都要删除
+     */
     public void deleteExpiredFile(long offset) {
         Object[] files = null;
         try {
+            // 获取读锁
             this.readWriteLock.readLock().lock();
             if (this.indexFileList.isEmpty()) {
                 return;
             }
 
+            // 获取第一个indexFile 的一个offset
             long endPhyOffset = this.indexFileList.get(0).getEndPhyOffset();
             if (endPhyOffset < offset) {
                 files = this.indexFileList.toArray();
@@ -109,6 +115,7 @@ public class IndexService {
         }
 
         if (files != null) {
+            // 找到需要删除的indexFile
             List<IndexFile> fileList = new ArrayList<IndexFile>();
             for (int i = 0; i < (files.length - 1); i++) {
                 IndexFile f = (IndexFile) files[i];
@@ -118,7 +125,7 @@ public class IndexService {
                     break;
                 }
             }
-
+            // todo 删除
             this.deleteExpiredFile(fileList);
         }
     }
@@ -128,7 +135,9 @@ public class IndexService {
             try {
                 this.readWriteLock.writeLock().lock();
                 for (IndexFile file : files) {
+                    // 销毁
                     boolean destroyed = file.destroy(3000);
+                    // 从index 集合中移除
                     destroyed = destroyed && this.indexFileList.remove(file);
                     if (!destroyed) {
                         log.error("deleteExpiredFile remove failed.");

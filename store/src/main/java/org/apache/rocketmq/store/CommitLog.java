@@ -134,6 +134,14 @@ public class CommitLog {
         return this.mappedFileQueue.remainHowManyDataToFlush();
     }
 
+    /**
+     * 删除过期的文件
+     * @param expiredTime 过期时间 默认72小时
+     * @param deleteFilesInterval 删除文件的间隔 100ms
+     * @param intervalForcibly  强制删除 1000 * 120
+     * @param cleanImmediately 是不是要一次性清理了
+     * @return
+     */
     public int deleteExpiredFile(
         final long expiredTime,
         final int deleteFilesInterval,

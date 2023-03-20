@@ -364,7 +364,9 @@ public class ConsumeQueue {
     }
 
     public int deleteExpiredFile(long offset) {
+        // 进行销毁 然后得到销毁个数
         int cnt = this.mappedFileQueue.deleteExpiredFileByOffset(offset, CQ_STORE_UNIT_SIZE);
+        // 纠正最小偏移量
         this.correctMinOffset(offset);
         return cnt;
     }
