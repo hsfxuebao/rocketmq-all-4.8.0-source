@@ -29,6 +29,10 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * 1.MappedFile组成的队列
+ *  * 2.包括CommitLog(消息主题以及元数据) ConsumerQueue逻辑队列
+ */
 public class MappedFileQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);
@@ -50,8 +54,9 @@ public class MappedFileQueue {
     // 当前刷盘指针，表示该指针之前的所有数据全部持久化到磁盘
     private long flushedWhere = 0;
     // 当前数据提交指针，内存中ByteBuffer当前的写指针，该值大于、等于flushedWhere
+    // (write >= commit >= flush位置)
     private long committedWhere = 0;
-
+    //当前已刷盘的最后一条消息存储的时间戳
     private volatile long storeTimestamp = 0;
 
     public MappedFileQueue(final String storePath, int mappedFileSize,
@@ -217,9 +222,11 @@ public class MappedFileQueue {
 
     public MappedFile getLastMappedFile(final long startOffset, boolean needCreate) {
         long createOffset = -1;
+        //最后一个映射文件
         MappedFile mappedFileLast = getLastMappedFile();
 
         if (mappedFileLast == null) {
+            //如果没有映射文件就 创建开始的offset
             createOffset = startOffset - (startOffset % this.mappedFileSize);
         }
 
@@ -227,7 +234,9 @@ public class MappedFileQueue {
             createOffset = mappedFileLast.getFileFromOffset() + this.mappedFileSize;
         }
 
+        //创建新的MappedFile
         if (createOffset != -1 && needCreate) {
+            //文件名
             String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);
             String nextNextFilePath = this.storePath + File.separator
                 + UtilAll.offset2FileName(createOffset + this.mappedFileSize);
@@ -244,8 +253,10 @@ public class MappedFileQueue {
                 }
             }
 
+            //添加到队列
             if (mappedFile != null) {
                 if (this.mappedFiles.isEmpty()) {
+                    //标识第一个文件
                     mappedFile.setFirstCreateInQueue(true);
                 }
                 this.mappedFiles.add(mappedFile);
@@ -266,6 +277,9 @@ public class MappedFileQueue {
 
         while (!this.mappedFiles.isEmpty()) {
             try {
+                //由于get和size没有加锁
+                // size获取的值可能是旧的，所以可能出现错误的大小，导致索引越界
+                // get获取的值可能是旧的数组，所以可能出现索引越界
                 mappedFileLast = this.mappedFiles.get(this.mappedFiles.size() - 1);
                 break;
             } catch (IndexOutOfBoundsException e) {
@@ -279,12 +293,17 @@ public class MappedFileQueue {
         return mappedFileLast;
     }
 
+    /**
+     * 将offset以后的MappedFile都清除掉
+     */
     public boolean resetOffset(long offset) {
         MappedFile mappedFileLast = getLastMappedFile();
 
         if (mappedFileLast != null) {
+            // 最后一个MappedFile的【起始偏移量】+ 【写入PageCache的位置】
             long lastOffset = mappedFileLast.getFileFromOffset() +
                 mappedFileLast.getWrotePosition();
+            // 最后的写入位置与offset的差值，如果大于2个MappedFile大小，就不做重置
             long diff = lastOffset - offset;
 
             final int maxDiff = this.mappedFileSize * 2;
@@ -297,12 +316,15 @@ public class MappedFileQueue {
         while (iterator.hasPrevious()) {
             mappedFileLast = iterator.previous();
             if (offset >= mappedFileLast.getFileFromOffset()) {
+                // 定位到offset在第几个MappedFile中
                 int where = (int) (offset % mappedFileLast.getFileSize());
+                // 重置最后一个MappedFile的位置
                 mappedFileLast.setFlushedPosition(where);
                 mappedFileLast.setWrotePosition(where);
                 mappedFileLast.setCommittedPosition(where);
                 break;
             } else {
+                // 如果offset小于当前的MappedFile的起始偏移量，则直接删除MappedFile
                 iterator.remove();
             }
         }
@@ -351,6 +373,9 @@ public class MappedFileQueue {
         return 0;
     }
 
+    /**
+     *还有多少字节等待commit的(wrote与commit位置之差)
+     */
     public long remainHowManyDataToCommit() {
         return getMaxWrotePosition() - committedWhere;
     }
@@ -564,6 +589,11 @@ public class MappedFileQueue {
         return null;
     }
 
+    /**
+     * 返回队列中第一个MappedFile，这里忽略索引越界异常，可能一个都没有，返回null
+     * 先判断mappedFiles是否为空，然后get(0),因为存在并发，所以需要即使判断为空，还是可能索引越界
+     * @return
+     */
     public MappedFile getFirstMappedFile() {
         MappedFile mappedFileFirst = null;
 

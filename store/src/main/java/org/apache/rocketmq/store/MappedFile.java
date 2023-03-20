@@ -116,6 +116,11 @@ public class MappedFile extends ReferenceResource {
     public static void clean(final ByteBuffer buffer) {
         if (buffer == null || !buffer.isDirect() || buffer.capacity() == 0)
             return;
+        /**
+         * 嵌套递归获取directByteBuffer的最内部的attachment或者viewedBuffer方法
+         * 获取directByteBuffer的Cleaner对象，然后调用cleaner.clean方法，进行释放资源
+         *
+         */
         invoke(invoke(viewed(buffer), "cleaner"), "clean");
     }
 
@@ -186,9 +191,11 @@ public class MappedFile extends ReferenceResource {
         this.fileName = fileName;
         this.fileSize = fileSize;
         this.file = new File(fileName);
+        //通过文件名获取起始偏移量
         this.fileFromOffset = Long.parseLong(this.file.getName());
         boolean ok = false;
 
+        //确保父目录存在
         ensureDirOK(this.file.getParent());
 
         try {
@@ -243,6 +250,11 @@ public class MappedFile extends ReferenceResource {
 
         // 如果currentPos小于文件大小
         if (currentPos < this.fileSize) {
+            /**
+             * RocketMQ提供两种数据落盘的方式:
+             * 1. 直接将数据写到mappedByteBuffer, 然后flush;
+             * 2. 先写到writeBuffer, 再从writeBuffer提交到fileChannel, 最后flush.
+             */
             ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();
             byteBuffer.position(currentPos);
             AppendMessageResult result;
@@ -349,7 +361,8 @@ public class MappedFile extends ReferenceResource {
     }
 
     /**
-     * 提交
+     * commitLeastPages 为本次提交最小的页面，默认4页(4*4KB),可参见
+     * org.apache.rocketmq.store.CommitLog.CommitRealTimeService#run()
      */
     public int commit(final int commitLeastPages) {
         // writeBuffer如果为空，直接返回wrotePosition指针，无
@@ -371,6 +384,7 @@ public class MappedFile extends ReferenceResource {
 
         // All dirty data has been committed to FileChannel.
         if (writeBuffer != null && this.transientStorePool != null && this.fileSize == this.committedPosition.get()) {
+            //清理工作，归还到堆外内存池中，并且释放当前writeBuffer
             this.transientStorePool.returnBuffer(writeBuffer);
             this.writeBuffer = null;
         }
@@ -404,6 +418,16 @@ public class MappedFile extends ReferenceResource {
         }
     }
 
+    /**
+     * 是否能够flush
+     *  1. 文件已经写满
+     *  2. flushLeastPages > 0 && 未flush部分超过flushLeastPages
+     *  3. flushLeastPages==0&&有新写入的部分
+     * @param flushLeastPages flush最小分页
+     *      mmap映射后的内存一般是内存页大小的倍数，而内存页大小一般为4K，所以写入到映射内存的数据大小可以以4K进行分页，
+     *      而flushLeastPages这个参数只是指示写了多少页后才可以强制将映射内存区域的数据强行写入到磁盘文件
+     * @return
+     */
     private boolean isAbleToFlush(final int flushLeastPages) {
         int flush = this.flushedPosition.get();
         int write = getReadPosition();
@@ -502,7 +526,9 @@ public class MappedFile extends ReferenceResource {
             return true;
         }
 
+        // todo
         clean(this.mappedByteBuffer);
+        //加一个fileSize大小的负数值
         TOTAL_MAPPED_VIRTUAL_MEMORY.addAndGet(this.fileSize * (-1));
         TOTAL_MAPPED_FILES.decrementAndGet();
         log.info("unmap file[REF:" + currentRef + "] " + this.fileName + " OK");
@@ -570,17 +596,32 @@ public class MappedFile extends ReferenceResource {
         this.committedPosition.set(pos);
     }
 
+    /**
+     * 1. 对当前映射文件进行预热
+     *   1.1. 先对当前映射文件的每个内存页写入一个字节0.当刷盘策略为同步刷盘时，执行强制刷盘，并且是每修改pages个分页刷一次盘
+     *  再将当前MappedFile全部的地址空间锁定，防止被swap
+     *   1.2. 然后将当前MappedFile全部的地址空间锁定在物理存储中，防止其被交换到swap空间。再调用madvise，传入 WILL_NEED 策略，将刚刚锁住的内存预热，其实就是告诉内核，我马上就要用（WILL_NEED）这块内存，先做虚拟内存到物理内存的映射，防止正式使用时产生缺页中断。
+     *  2. 只要启用缓存预热，都会通过mappedByteBuffer来写入假值(字节0)，并且都会对mappedByteBuffer执行mlock和madvise。
+     * @param type 刷盘策略
+     * @param pages 预热时一次刷盘的分页数
+     */
     public void warmMappedFile(FlushDiskType type, int pages) {
         long beginTime = System.currentTimeMillis();
         ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
+        //上一次刷盘的位置
         int flush = 0;
         long time = System.currentTimeMillis();
         for (int i = 0, j = 0; i < this.fileSize; i += MappedFile.OS_PAGE_SIZE, j++) {
             byteBuffer.put(i, (byte) 0);
             // force flush when flush disk type is sync
             if (type == FlushDiskType.SYNC_FLUSH) {
+                /**
+                 *  同步刷盘，每修改pages个分页强制刷一次盘，默认16MB
+                 * 参见org.apache.rocketmq.store.config.MessageStoreConfig#flushLeastPagesWhenWarmMapedFile
+                 */
                 if ((i / OS_PAGE_SIZE) - (flush / OS_PAGE_SIZE) >= pages) {
                     flush = i;
+                    //FIXME 刷入修改的内容，不会有性能问题？？
                     mappedByteBuffer.force();
                 }
             }
@@ -638,11 +679,16 @@ public class MappedFile extends ReferenceResource {
         final long address = ((DirectBuffer) (this.mappedByteBuffer)).address();
         Pointer pointer = new Pointer(address);
         {
+            // 内存锁定
+            // 通过mlock可以将进程使用的部分或者全部的地址空间锁定在物理内存中，防止其被交换到swap空间。
+            // 对时间敏感的应用会希望全部使用物理内存，提高数据访问和操作的效率。
             int ret = LibC.INSTANCE.mlock(pointer, new NativeLong(this.fileSize));
             log.info("mlock {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
         }
 
         {
+            //文件预读
+            //madvise 一次性先将一段数据读入到映射内存区域，这样就减少了缺页异常的产生。
             int ret = LibC.INSTANCE.madvise(pointer, new NativeLong(this.fileSize), LibC.MADV_WILLNEED);
             log.info("madvise {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
         }

@@ -62,7 +62,7 @@ public abstract class ReferenceResource {
             return;
 
         synchronized (this) {
-            // todo
+            // todo 如果引用计数等于0，则执行清理堆外内存
             this.cleanupOver = this.cleanup(value);
         }
     }
