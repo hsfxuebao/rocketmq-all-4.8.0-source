@@ -28,7 +28,9 @@ public abstract class ServiceThread implements Runnable {
     private static final long JOIN_TIME = 90 * 1000;
 
     private Thread thread;
+    // CountDownLatch用于线程间的通信
     protected final CountDownLatch2 waitPoint = new CountDownLatch2(1);
+    // 是否通知，初始化为false
     protected volatile AtomicBoolean hasNotified = new AtomicBoolean(false);
     protected volatile boolean stopped = false;
     protected boolean isDaemon = false;
@@ -126,21 +128,29 @@ public abstract class ServiceThread implements Runnable {
         }
     }
 
+    // 等待运行
     protected void waitForRunning(long interval) {
+        // todo 先判断hasNotified是否为true（已通知） 通过调用wakeup()可设置为true
+        // 无需等待interval 毫秒  立即返回
         if (hasNotified.compareAndSet(true, false)) {
+            // 调用onWaitEnd 交换读写容器
             this.onWaitEnd();
             return;
         }
 
         //entry to wait
+        // 重置waitPoint的值，也就是值为1
         waitPoint.reset();
 
         try {
+            // 会一直等待waitPoint值降为0
             waitPoint.await(interval, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             log.error("Interrupted", e);
         } finally {
+            // 是否被通知设置为false
             hasNotified.set(false);
+            // 交换读写容器
             this.onWaitEnd();
         }
     }

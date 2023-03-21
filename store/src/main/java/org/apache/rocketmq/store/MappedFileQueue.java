@@ -515,6 +515,7 @@ public class MappedFileQueue {
         MappedFile mappedFile = this.findMappedFileByOffset(this.flushedWhere, this.flushedWhere == 0);
         if (mappedFile != null) {
             long tmpTimeStamp = mappedFile.getStoreTimestamp();
+            // todo
             int offset = mappedFile.flush(flushLeastPages);
             long where = mappedFile.getFileFromOffset() + offset;
             result = where == this.flushedWhere;
@@ -529,11 +530,16 @@ public class MappedFileQueue {
 
     public boolean commit(final int commitLeastPages) {
         boolean result = true;
+        // 根据提交位置的偏移量获取映射文件
         MappedFile mappedFile = this.findMappedFileByOffset(this.committedWhere, this.committedWhere == 0);
         if (mappedFile != null) {
+            // 调用mappedFile的commit方法进行提交，返回提交数据的偏移量
             int offset = mappedFile.commit(commitLeastPages);
+            // 记录本次提交的偏移量：文件的偏移量 + 提交数据的偏移量
             long where = mappedFile.getFileFromOffset() + offset;
+            // 设置返回结果，如果本次提交偏移量等于上一次的提交偏移量为true，表示什么也没干，否则表示提交了数据，等待刷盘
             result = where == this.committedWhere;
+            // 更新上一次提交偏移量的值为本次的
             this.committedWhere = where;
         }
 
