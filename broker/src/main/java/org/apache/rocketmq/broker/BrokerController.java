@@ -893,7 +893,7 @@ public class BrokerController {
             this.fileWatchService.start();
         }
 
-        // broker对外发放消息的组件，向nameServer上报存活消息时使用了它，也是一个netty服务
+        // todo broker对外发放消息的组件，向nameServer上报存活消息时使用了它，也是一个netty服务
         if (this.brokerOuterAPI != null) {
             this.brokerOuterAPI.start();
         }
@@ -911,6 +911,7 @@ public class BrokerController {
             this.filterServerManager.start();
         }
 
+        // todo HA主从同步
         if (!messageStoreConfig.isEnableDLegerCommitLog()) {
             startProcessorByHa(messageStoreConfig.getBrokerRole());
             handleSlaveSynchronize(messageStoreConfig.getBrokerRole());

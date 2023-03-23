@@ -150,7 +150,7 @@ public abstract class ServiceThread implements Runnable {
         } finally {
             // 是否被通知设置为false
             hasNotified.set(false);
-            // 交换读写容器
+            // todo 交换读写容器
             this.onWaitEnd();
         }
     }

@@ -1045,6 +1045,7 @@ public class CommitLog {
             if (messageExt.isWaitStoreMsgOK()) {
                 if (service.isSlaveOK(result.getWroteBytes() + result.getWroteOffset())) {
 
+                    // 构建GroupCommitRequest
                     GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(),
                             this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
                     // todo 向HaService提交GroupCommitRequest对象后
@@ -1053,6 +1054,7 @@ public class CommitLog {
                     //handlePutMessageResultFuture方法中定义的，而CompletableFuture
                     //的complete方法会在消息被复制到从节点后被调用，其核心代码在GroupCommitRequest中
                     service.putRequest(request);
+                    // 唤醒GroupTransferService中在等待的线程
                     service.getWaitNotifyObject().wakeupAll();
                     return request.future();
                 }
@@ -1505,7 +1507,7 @@ public class CommitLog {
                     CommitLog.this.mappedFileQueue.flush(flushPhysicQueueLeastPages);
                     long storeTimestamp = CommitLog.this.mappedFileQueue.getStoreTimestamp();
                     if (storeTimestamp > 0) {
-                        // 更新checkpoint文件的CommitLog文件更新时间戳
+                        // todo 更新checkpoint文件的CommitLog文件更新时间戳
                         CommitLog.this.defaultMessageStore.getStoreCheckpoint().setPhysicMsgTimestamp(storeTimestamp);
                     }
                     long past = System.currentTimeMillis() - begin;
