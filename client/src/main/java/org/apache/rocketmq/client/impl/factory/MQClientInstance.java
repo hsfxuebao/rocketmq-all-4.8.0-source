@@ -253,10 +253,10 @@ public class MQClientInstance {
                     // todo 开启任务调度
                     this.startScheduledTask();
                     // Start pull service
-                    // todo 开启 拉取服务
+                    // todo 开启 拉取服务 仅对consumer启作用
                     this.pullMessageService.start();
                     // Start rebalance service
-                    // todo 开启平衡服务
+                    // todo 开启平衡服务 仅对consumer启作用
                     this.rebalanceService.start();
                     // Start push service
                     // todo 启用内部的 producer
@@ -317,6 +317,7 @@ public class MQClientInstance {
             }
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
+        // // 持久化消费者的消费偏移量，每5秒一次
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -515,6 +516,7 @@ public class MQClientInstance {
         while (it.hasNext()) {
             Entry<String, MQConsumerInner> entry = it.next();
             MQConsumerInner impl = entry.getValue();
+            // todo
             impl.persistConsumerOffset();
         }
     }
@@ -1017,7 +1019,7 @@ public class MQClientInstance {
     }
 
     public void doRebalance() {
-        // MQClientIinstance遍历已注册的消费者，对消费者执行doRebalance()方法
+        // MQClientInstance遍历已注册的消费者，对消费者执行doRebalance()方法
         for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {

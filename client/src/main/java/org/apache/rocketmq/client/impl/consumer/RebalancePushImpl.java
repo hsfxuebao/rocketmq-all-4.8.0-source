@@ -141,6 +141,7 @@ public class RebalancePushImpl extends RebalanceImpl {
     public long computePullFromWhere(MessageQueue mq) {
         long result = -1;
         final ConsumeFromWhere consumeFromWhere = this.defaultMQPushConsumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere();
+        // 获取 offsetStore
         final OffsetStore offsetStore = this.defaultMQPushConsumerImpl.getOffsetStore();
         switch (consumeFromWhere) {
             case CONSUME_FROM_LAST_OFFSET_AND_FROM_MIN_WHEN_BOOT_FIRST:
@@ -149,11 +150,12 @@ public class RebalancePushImpl extends RebalanceImpl {
             // 从队列最新偏移量开始消费
             case CONSUME_FROM_LAST_OFFSET: {
                 /**
-                 * 从磁盘中读取消息队列的消费进度，如果大于0则直接返回，如果等
+                 * 从远程中读取消息队列的消费进度，如果大于0则直接返回，如果等
                  * 于-1，在CONSUME_FROM_LAST_OFFSET模式下获取该消息队列当前最大
                  * 的偏移量，如果小于-1，表示该消息进度文件中存储了错误的偏移
                  * 量，则返回-1
                  */
+                // todo 读取操作
                 long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE);
                 if (lastOffset >= 0) {
                     result = lastOffset;

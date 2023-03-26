@@ -98,6 +98,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
                 }
                 case READ_FROM_STORE: {
                     try {
+                        // todo 从broker中获取
                         long brokerOffset = this.fetchConsumeOffsetFromBroker(mq);
                         AtomicLong offset = new AtomicLong(brokerOffset);
                         this.updateOffset(mq, offset.get(), false);
@@ -134,6 +135,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
             if (offset != null) {
                 if (mqs.contains(mq)) {
                     try {
+                        // todo 更新偏移量信息到broker
                         this.updateConsumeOffsetToBroker(mq, offset.get());
                         log.info("[persistAll] Group: {} ClientId: {} updateConsumeOffsetToBroker {} {}",
                             this.groupName,
@@ -200,6 +202,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
      */
     private void updateConsumeOffsetToBroker(MessageQueue mq, long offset) throws RemotingException,
         MQBrokerException, InterruptedException, MQClientException {
+        // todo
         updateConsumeOffsetToBroker(mq, offset, true);
     }
 
@@ -226,6 +229,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
                 this.mQClientFactory.getMQClientAPIImpl().updateConsumerOffsetOneway(
                     findBrokerResult.getBrokerAddr(), requestHeader, 1000 * 5);
             } else {
+                // todo 更新 偏移量
                 this.mQClientFactory.getMQClientAPIImpl().updateConsumerOffset(
                     findBrokerResult.getBrokerAddr(), requestHeader, 1000 * 5);
             }
@@ -236,6 +240,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
 
     private long fetchConsumeOffsetFromBroker(MessageQueue mq) throws RemotingException, MQBrokerException,
         InterruptedException, MQClientException {
+        // 找到对应的 broker，只从对应的broker上获取
         FindBrokerResult findBrokerResult = this.mQClientFactory.findBrokerAddressInAdmin(mq.getBrokerName());
         if (null == findBrokerResult) {
 
@@ -249,6 +254,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
             requestHeader.setConsumerGroup(this.groupName);
             requestHeader.setQueueId(mq.getQueueId());
 
+            // todo 从broker查询
             return this.mQClientFactory.getMQClientAPIImpl().queryConsumerOffset(
                 findBrokerResult.getBrokerAddr(), requestHeader, 1000 * 5);
         } else {

@@ -361,6 +361,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
          */
         long offset = consumeRequest.getProcessQueue().removeMessage(consumeRequest.getMsgs());
         if (offset >= 0 && !consumeRequest.getProcessQueue().isDropped()) {
+            // todo 更新偏移量
             this.defaultMQPushConsumerImpl.getOffsetStore().updateOffset(consumeRequest.getMessageQueue(), offset, true);
         }
     }
@@ -433,8 +434,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         @Override
         public void run() {
             /**
-             * 先检查processQueue的
-             * dropped，如果设置为true，则停止该队列的消费。在进行消息重新负
+             * 先检查processQueue的dropped，如果设置为true，则停止该队列的消费。在进行消息重新负
              * 载时，如果该消息队列被分配给消费组内的其他消费者，需要将
              * droped设置为true，阻止消费者继续消费不属于自己的消息队列
              */
@@ -443,6 +443,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 return;
             }
 
+            // 取出消息监听器
             MessageListenerConcurrently listener = ConsumeMessageConcurrentlyService.this.messageListener;
             ConsumeConcurrentlyContext context = new ConsumeConcurrentlyContext(messageQueue);
             ConsumeConcurrentlyStatus status = null;

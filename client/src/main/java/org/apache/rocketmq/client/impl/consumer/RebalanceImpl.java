@@ -229,7 +229,7 @@ public abstract class RebalanceImpl {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
                 final String topic = entry.getKey();
                 try {
-                    // todo
+                    // todo 客户端负载均衡：根据主题来处理负载均衡
                     this.rebalanceByTopic(topic, isOrder);
                 } catch (Throwable e) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -248,7 +248,9 @@ public abstract class RebalanceImpl {
 
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
         switch (messageModel) {
+            // 广播模式：不需要处理负载均衡，每个消费者都要消费，只需要更新负载信息
             case BROADCASTING: {
+                // 更新负载均衡信息，这里传入的参数是mqSet，即所有队列
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, mqSet, isOrder);
@@ -265,6 +267,7 @@ public abstract class RebalanceImpl {
                 }
                 break;
             }
+            // todo 集群模式
             case CLUSTERING: {
                 // 从主题订阅信息缓存表中获取主题的队列信息
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
@@ -313,7 +316,8 @@ public abstract class RebalanceImpl {
                         allocateResultSet.addAll(allocateResult);
                     }
 
-                    // todo 对比消息队列是否发生变化
+
+                    // todo 对比消息队列是否发生变化 更新负载均衡信息，传入参数是 allocateResultSet，即当前consumer分配到的队列
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, allocateResultSet, isOrder);
                     if (changed) {
                         log.info(

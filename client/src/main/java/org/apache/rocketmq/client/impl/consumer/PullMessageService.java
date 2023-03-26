@@ -56,6 +56,9 @@ public class PullMessageService extends ServiceThread {
         }
     }
 
+    /**
+     * 将 pullRequest 放入 pullRequestQueue 中
+     */
     public void executePullRequestImmediately(final PullRequest pullRequest) {
         try {
             this.pullRequestQueue.put(pullRequest);
@@ -82,6 +85,7 @@ public class PullMessageService extends ServiceThread {
         if (consumer != null) {
             // 转成DefaultMQPushConsumerImpl
             DefaultMQPushConsumerImpl impl = (DefaultMQPushConsumerImpl) consumer;
+            // todo 继续处理
             impl.pullMessage(pullRequest);
         } else {
             log.warn("No matched consumer for the PullRequest {}, drop it", pullRequest);

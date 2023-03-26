@@ -753,6 +753,7 @@ public class MQClientAPIImpl {
         final CommunicationMode communicationMode,
         final PullCallback pullCallback
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        // todo PULL_MESSAGE
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.PULL_MESSAGE, requestHeader);
 
         switch (communicationMode) {
@@ -1029,8 +1030,10 @@ public class MQClientAPIImpl {
         final UpdateConsumerOffsetRequestHeader requestHeader,
         final long timeoutMillis
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        // 更新偏移量的请求 code 为 UPDATE_CONSUMER_OFFSET
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.UPDATE_CONSUMER_OFFSET, requestHeader);
 
+        // 执行 netty 请求
         RemotingCommand response = this.remotingClient.invokeSync(MixAll.brokerVIPChannel(this.clientConfig.isVipChannelEnabled(), addr),
             request, timeoutMillis);
         assert response != null;

@@ -237,6 +237,7 @@ public class ProcessQueue {
                     msgCount.addAndGet(removedCnt);
 
                     if (!msgTreeMap.isEmpty()) {
+                        // todo 最小位移提交机制 返回消息容器中最小元素 key
                         result = msgTreeMap.firstKey();
                     }
                 }

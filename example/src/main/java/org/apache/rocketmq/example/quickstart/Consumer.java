@@ -35,6 +35,7 @@ public class Consumer {
         /*
          * Instantiate with specified consumer group name.
          */
+        // todo
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("please_rename_unique_group_name_4");
 
         /*
@@ -62,11 +63,13 @@ public class Consumer {
         /*
          *  Register callback to execute on arrival of messages fetched from brokers.
          */
+        // 注册监听器，监听消息
         consumer.registerMessageListener(new MessageListenerConcurrently() {
 
             @Override
             public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs,
                 ConsumeConcurrentlyContext context) {
+                // 这里获得了消息
                 System.out.printf("%s Receive New Messages: %s %n", Thread.currentThread().getName(), msgs);
                 return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
             }
@@ -75,7 +78,7 @@ public class Consumer {
         /*
          *  Launch the consumer instance.
          */
-        // todo
+        // todo 启动
         consumer.start();
 
         System.out.printf("Consumer Started.%n");

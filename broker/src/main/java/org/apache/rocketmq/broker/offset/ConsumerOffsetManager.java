@@ -37,6 +37,9 @@ public class ConsumerOffsetManager extends ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private static final String TOPIC_GROUP_SEPARATOR = "@";
 
+    /**
+     * 存放偏移量的map
+     */
     private ConcurrentMap<String/* topic@group */, ConcurrentMap<Integer, Long>> offsetTable =
         new ConcurrentHashMap<String, ConcurrentMap<Integer, Long>>(512);
 
@@ -118,10 +121,12 @@ public class ConsumerOffsetManager extends ConfigManager {
         return groups;
     }
 
+    // 处理保存操作
     public void commitOffset(final String clientHost, final String group, final String topic, final int queueId,
         final long offset) {
         // topic@group
         String key = topic + TOPIC_GROUP_SEPARATOR + group;
+        // todo 继续调用重载方法
         this.commitOffset(clientHost, key, queueId, offset);
     }
 
