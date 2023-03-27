@@ -625,6 +625,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                     this.defaultMQPushConsumer.getMessageModel(), this.defaultMQPushConsumer.isUnitMode());
                 this.serviceState = ServiceState.START_FAILED;
 
+                //TODO:检查配置，比如消费者组是否为空，消费模式是否为空，订阅信息是否为空等等
                 this.checkConfig();
 
                 // TODO 构建主题订阅信息SubscriptionData并加入RebalanceImpl的订阅消息中
@@ -643,6 +644,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 this.rebalanceImpl.setAllocateMessageQueueStrategy(this.defaultMQPushConsumer.getAllocateMessageQueueStrategy());
                 this.rebalanceImpl.setmQClientFactory(this.mQClientFactory);
 
+                //TODO: 创建拉取对象的核心类，后面去broker拉取消息时会看到
                 this.pullAPIWrapper = new PullAPIWrapper(
                     mQClientFactory,
                     this.defaultMQPushConsumer.getConsumerGroup(), isUnitMode());
@@ -655,9 +657,11 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                     this.offsetStore = this.defaultMQPushConsumer.getOffsetStore();
                 } else {
                     switch (this.defaultMQPushConsumer.getMessageModel()) {
+                        //TODO: 广播模式创建LocalFileOffsetStore，保存offset到本地文件中
                         case BROADCASTING:
                             this.offsetStore = new LocalFileOffsetStore(this.mQClientFactory, this.defaultMQPushConsumer.getConsumerGroup());
                             break;
+                        //TODO:集群模式创建 RemoteBrokerOffsetStore，保存offset到broker文件中
                         case CLUSTERING:
                             this.offsetStore = new RemoteBrokerOffsetStore(this.mQClientFactory, this.defaultMQPushConsumer.getConsumerGroup());
                             break;
@@ -673,19 +677,19 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 //ConsumeMessageService主要负责消息消费，在内部维护一个线程池
                 if (this.getMessageListenerInner() instanceof MessageListenerOrderly) {
                     this.consumeOrderly = true;
+                    //TODO:创建顺序消费消息服务类
                     this.consumeMessageService =
                         new ConsumeMessageOrderlyService(this, (MessageListenerOrderly) this.getMessageListenerInner());
                 } else if (this.getMessageListenerInner() instanceof MessageListenerConcurrently) {
                     this.consumeOrderly = false;
+                    //TODO:创建其他消费消息服务类，其内部维护了一个线程池，后面会用到
                     this.consumeMessageService =
                         new ConsumeMessageConcurrentlyService(this, (MessageListenerConcurrently) this.getMessageListenerInner());
                 }
 
                 this.consumeMessageService.start();
 
-                // todo 向MQClientInstance注册消费者并启动
-                //MQClientInstance，JVM中的所有消费者、生产者持有同一个
-                //MQClientInstance，MQClientInstance只会启动一次
+                // todo 向MQClientInstance注册消费者并启动MQClientInstance，JVM中的所有消费者、生产者持有同一个MQClientInstance，MQClientInstance只会启动一次
                 boolean registerOK = mQClientFactory.registerConsumer(this.defaultMQPushConsumer.getConsumerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -695,7 +699,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                         null);
                 }
 
-                // todo 启动
+                // todo 启动客户端实例，这个方法非常重要，内部做了很多事情
                 mQClientFactory.start();
                 log.info("the consumer [{}] start OK.", this.defaultMQPushConsumer.getConsumerGroup());
                 this.serviceState = ServiceState.RUNNING;
@@ -714,9 +718,9 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         // 更新 topic 的信息，从nameServer获取数据
         this.updateTopicSubscribeInfoWhenSubscriptionChanged();
         this.mQClientFactory.checkClientInBroker();
-        // 发送心跳，发送到所有的broker
+        // todo 发送心跳，发送到所有的broker
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
-        // 负载均衡
+        // todo 负载均衡 立即重平衡
         this.mQClientFactory.rebalanceImmediately();
     }
 

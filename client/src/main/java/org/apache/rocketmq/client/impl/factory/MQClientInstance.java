@@ -91,16 +91,19 @@ public class MQClientInstance {
     private final int instanceIndex;
     private final String clientId;
     private final long bootTimestamp = System.currentTimeMillis();
-    // 生产者表： key:生产者group
+    //TODO:生产者表，producer启动时创建一个新的MQClientInstance实例对象，将生产者信息注册到这里。生产者实例对象中消费者信息是空
     private final ConcurrentMap<String/* group */, MQProducerInner> producerTable = new ConcurrentHashMap<String, MQProducerInner>();
+    //TODO:消费者表，consumer启动时创建一个新的MQClientInstance实例对象，将消费者信息注册到这里。消费者实例对象中生产者信息是空
     private final ConcurrentMap<String/* group */, MQConsumerInner> consumerTable = new ConcurrentHashMap<String, MQConsumerInner>();
     private final ConcurrentMap<String/* group */, MQAdminExtInner> adminExtTable = new ConcurrentHashMap<String, MQAdminExtInner>();
     private final NettyClientConfig nettyClientConfig;
     private final MQClientAPIImpl mQClientAPIImpl;
     private final MQAdminImpl mQAdminImpl;
+    //TODO:topic路由信息，producer和consumer都会使用
     private final ConcurrentMap<String/* Topic */, TopicRouteData> topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
     private final Lock lockNamesrv = new ReentrantLock();
     private final Lock lockHeartbeat = new ReentrantLock();
+    //TODO:broker信息，producer和consumer都会用到
     private final ConcurrentMap<String/* Broker Name */, HashMap<Long/* brokerId */, String/* address */>> brokerAddrTable =
         new ConcurrentHashMap<String, HashMap<Long, String>>();
     private final ConcurrentMap<String/* Broker Name */, HashMap<String/* address */, Integer>> brokerVersionTable =
@@ -134,8 +137,9 @@ public class MQClientInstance {
         this.nettyClientConfig.setClientCallbackExecutorThreads(clientConfig.getClientCallbackExecutorThreads());
         // 是否启动tls
         this.nettyClientConfig.setUseTLS(clientConfig.isUseTLS());
-        // processor
+        //TODO:客户端处理器,比如在集群消费模式下，有新的消费者加入，则通知消费者客户端重平衡,是给消费者用的(分析生产者时，我们直接忽略了它）
         this.clientRemotingProcessor = new ClientRemotingProcessor(this);
+        //TODO:它的内部会创建netty客户端对象（NettyRemotingClient），用于和broker通信
         this.mQClientAPIImpl = new MQClientAPIImpl(this.nettyClientConfig, this.clientRemotingProcessor, rpcHook, clientConfig);
 
         // namesrv 不为null，更新namesrv地址列表
@@ -149,8 +153,9 @@ public class MQClientInstance {
 
         this.mQAdminImpl = new MQAdminImpl(this);
 
+        //TODO:拉取消息的服务，和消费者相关
         this.pullMessageService = new PullMessageService(this);
-
+        //TODO:重平衡服务，和消费者相关
         this.rebalanceService = new RebalanceService(this);
 
         // client 内部的一个producer 组为CLIENT_INNER_PRODUCER

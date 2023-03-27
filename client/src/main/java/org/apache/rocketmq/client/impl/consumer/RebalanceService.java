@@ -38,7 +38,7 @@ public class RebalanceService extends ServiceThread {
 
 
         while (!this.isStopped()) {
-            // 等待20s执行一次
+            // todo 等待20s执行一次 内部使用了juc的CountDownLatch, 使得这里启动后仍然是阻塞的
             this.waitForRunning(waitInterval);
             // todo
             this.mqClientFactory.doRebalance();
