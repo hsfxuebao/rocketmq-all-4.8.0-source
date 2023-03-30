@@ -312,6 +312,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
         final long beginTimestamp = System.currentTimeMillis();
 
+        //TODO: 拉取消息回调，这里非常重要，不过这里是从broker拉取消息成功后才执行的，继续往后看
         PullCallback pullCallback = new PullCallback() {
             @Override
             public void onSuccess(PullResult pullResult) {
@@ -435,6 +436,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 }
 
                 // 这个方法会把 pullRequest 丢到 pullRequestQueue 中
+                //TODO:延迟3s钟，将`PullRequest`对象再次放入队列`pullRequestQueue`中，等待再次`take()`,然后继续拉取消息的逻辑
                 DefaultMQPushConsumerImpl.this.executePullRequestLater(pullRequest, pullTimeDelayMillsWhenException);
             }
         };
@@ -469,17 +471,25 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         try {
             // todo 调用PullAPIWrapper.pullKernelImpl方法后与服务端交互
             this.pullAPIWrapper.pullKernelImpl(
+                    //TODO: 指定去哪个queue拉取消息
                 pullRequest.getMessageQueue(),
+                    //TODO:表达式，就是tag/sql
                 subExpression,
+                    //TODO: 表达式类型，TAG/SQL
                 subscriptionData.getExpressionType(),
                 subscriptionData.getSubVersion(),
+                    //TODO: 这个非常重要的，第一次拉取它的值是 0
                 pullRequest.getNextOffset(),
+                    //TODO: 这个参数值默认是32
                 this.defaultMQPushConsumer.getPullBatchSize(),
                 sysFlag,
                 commitOffsetValue,
+                    //TODO:当consumer拉取消息但broker没有时，此时broker会将请求挂起，默认是15s
                 BROKER_SUSPEND_MAX_TIME_MILLIS,
                 CONSUMER_TIMEOUT_MILLIS_WHEN_SUSPEND,
+                    //TODO: 异步
                 CommunicationMode.ASYNC,
+                    //TODO: 回调对象
                 pullCallback
             );
         } catch (Exception e) {

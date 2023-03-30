@@ -102,6 +102,7 @@ public class PullMessageService extends ServiceThread {
             try {
                 // 从pullRequestQueue中获取一个PullRequest消息拉取任务，
                 //如果pullRequestQueue为空，则线程将阻塞，直到有拉取任务被放入
+                // todo 刚开始肯定获取不到，那么我们就要看是什么时候将PullRequest放入队列中的呢？
                 PullRequest pullRequest = this.pullRequestQueue.take();
                 // todo 调用pullMessage方法进行消息拉取
                 this.pullMessage(pullRequest);

@@ -761,7 +761,7 @@ public class MQClientAPIImpl {
                 assert false;
                 return null;
             case ASYNC:
-                // todo
+                // todo 异步拉取，将拉取消息的结果交给 PullCallback 处理
                 this.pullMessageAsync(addr, request, timeoutMillis, pullCallback);
                 return null;
             case SYNC:

@@ -269,7 +269,7 @@ public abstract class RebalanceImpl {
             }
             // todo 集群模式
             case CLUSTERING: {
-                // 从主题订阅信息缓存表中获取主题的队列信息
+                // 从主题订阅信息缓存表中获取主题的队列信息, 获取这个topic下的所有队列（默认是4个）
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 //发送请求从Broker中获取该消费组内当前所有的消费者客户端ID，主题的队
                 //列可能分布在多个Broker上，那么请求该发往哪个Broker呢？
@@ -295,6 +295,7 @@ public abstract class RebalanceImpl {
                     Collections.sort(mqAll);
                     Collections.sort(cidAll);
 
+                    // 默认是平均分配策略
                     AllocateMessageQueueStrategy strategy = this.allocateMessageQueueStrategy;
 
                     List<MessageQueue> allocateResult = null;
@@ -311,6 +312,7 @@ public abstract class RebalanceImpl {
                         return;
                     }
 
+                    //TODO:保存了当前消费者需要消费的队列
                     Set<MessageQueue> allocateResultSet = new HashSet<MessageQueue>();
                     if (allocateResult != null) {
                         allocateResultSet.addAll(allocateResult);

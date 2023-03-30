@@ -75,6 +75,7 @@ public class PullAPIWrapper {
         if (PullStatus.FOUND == pullResult.getPullStatus()) {
             // 将二进制数据解码为对象
             ByteBuffer byteBuffer = ByteBuffer.wrap(pullResultExt.getMessageBinary());
+            //TODO:将二进制消息转换成MessageExt对象
             List<MessageExt> msgList = MessageDecoder.decodes(byteBuffer);
 
             List<MessageExt> msgListFilterAgain = msgList;
@@ -210,11 +211,15 @@ public class PullAPIWrapper {
             PullMessageRequestHeader requestHeader = new PullMessageRequestHeader();
             requestHeader.setConsumerGroup(this.consumerGroup);
             requestHeader.setTopic(mq.getTopic());
+            //TODO:消费哪个queue，重平衡服务做的就是这个
             requestHeader.setQueueId(mq.getQueueId());
+            //TODO:从哪个queue的offset开始消费
             requestHeader.setQueueOffset(offset);
+            //TODO: pullBatchSize, 默认是32
             requestHeader.setMaxMsgNums(maxNums);
             requestHeader.setSysFlag(sysFlagInner);
             requestHeader.setCommitOffset(commitOffset);
+            //TODO:当consumer拉取消息但broker没有时，此时broker会将请求挂起，默认是15s
             requestHeader.setSuspendTimeoutMillis(brokerSuspendMaxTimeMillis);
             requestHeader.setSubscription(subExpression);
             requestHeader.setSubVersion(subVersion);
