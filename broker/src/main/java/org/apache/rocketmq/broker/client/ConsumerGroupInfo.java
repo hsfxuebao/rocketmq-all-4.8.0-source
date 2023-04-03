@@ -35,8 +35,10 @@ import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 public class ConsumerGroupInfo {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final String groupName;
+    // 记录了订阅的主题信息，key为topic，value为订阅信息
     private final ConcurrentMap<String/* Topic */, SubscriptionData> subscriptionTable =
         new ConcurrentHashMap<String, SubscriptionData>();
+    // key为消费者对应的channle，value为chanel信息
     private final ConcurrentMap<Channel, ClientChannelInfo> channelInfoTable =
         new ConcurrentHashMap<Channel, ClientChannelInfo>(16);
     private volatile ConsumeType consumeType;
@@ -115,22 +117,29 @@ public class ConsumerGroupInfo {
 
     public boolean updateChannel(final ClientChannelInfo infoNew, ConsumeType consumeType,
         MessageModel messageModel, ConsumeFromWhere consumeFromWhere) {
+        // 变更状态初始化为false
         boolean updated = false;
         this.consumeType = consumeType;
         this.messageModel = messageModel;
         this.consumeFromWhere = consumeFromWhere;
 
+        // 从channelInfoTable中获取对应的Channel信息,
         ClientChannelInfo infoOld = this.channelInfoTable.get(infoNew.getChannel());
+        // 为空
         if (null == infoOld) {
+            // 新增
             ClientChannelInfo prev = this.channelInfoTable.put(infoNew.getChannel(), infoNew);
+            // 如果之前不存在
             if (null == prev) {
                 log.info("new consumer connected, group: {} {} {} channel: {}", this.groupName, consumeType,
                     messageModel, infoNew.toString());
+                // 变更状态置为true
                 updated = true;
             }
 
             infoOld = infoNew;
         } else {
+            // 如果之前存在，判断clientid是否一致，如果不一致更新为最新的channel
             if (!infoOld.getClientId().equals(infoNew.getClientId())) {
                 log.error("[BUG] consumer channel exist in broker, but clientId not equal. GROUP: {} OLD: {} NEW: {} ",
                     this.groupName,
@@ -149,16 +158,22 @@ public class ConsumerGroupInfo {
     public boolean updateSubscription(final Set<SubscriptionData> subList) {
         boolean updated = false;
 
+        // 遍历订阅的主题信息
         for (SubscriptionData sub : subList) {
+            //根据主题获取订阅信息
             SubscriptionData old = this.subscriptionTable.get(sub.getTopic());
+            // 如果获取为空
             if (old == null) {
+                // 加入到subscriptionTable
                 SubscriptionData prev = this.subscriptionTable.putIfAbsent(sub.getTopic(), sub);
                 if (null == prev) {
+                    // 变更状态置为true
                     updated = true;
                     log.info("subscription changed, add new topic, group: {} {}",
                         this.groupName,
                         sub.toString());
                 }
+            // 如果版本发生了变化
             } else if (sub.getSubVersion() > old.getSubVersion()) {
                 if (this.consumeType == ConsumeType.CONSUME_PASSIVELY) {
                     log.info("subscription changed, group: {} OLD: {} NEW: {}",
@@ -167,24 +182,28 @@ public class ConsumerGroupInfo {
                         sub.toString()
                     );
                 }
-
+                // 更新为最新的订阅信息
                 this.subscriptionTable.put(sub.getTopic(), sub);
             }
         }
 
         Iterator<Entry<String, SubscriptionData>> it = this.subscriptionTable.entrySet().iterator();
+        // 进行遍历，这一步主要是判断有没有取消订阅的主题
         while (it.hasNext()) {
             Entry<String, SubscriptionData> next = it.next();
             String oldTopic = next.getKey();
 
             boolean exist = false;
+            // 遍历最新的订阅信息
             for (SubscriptionData sub : subList) {
+                // 如果在旧的订阅信息中存在就终止，继续判断下一个主题
                 if (sub.getTopic().equals(oldTopic)) {
                     exist = true;
                     break;
                 }
             }
 
+            // 走到这里，表示有取消订阅的主题
             if (!exist) {
                 log.warn("subscription changed, group: {} remove topic {} {}",
                     this.groupName,
@@ -192,7 +211,9 @@ public class ConsumerGroupInfo {
                     next.getValue().toString()
                 );
 
+                // 进行删除
                 it.remove();
+                // 变更状态置为true
                 updated = true;
             }
         }

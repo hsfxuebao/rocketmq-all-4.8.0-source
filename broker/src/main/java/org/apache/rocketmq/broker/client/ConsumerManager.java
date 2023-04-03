@@ -99,24 +99,31 @@ public class ConsumerManager {
         ConsumeType consumeType, MessageModel messageModel, ConsumeFromWhere consumeFromWhere,
         final Set<SubscriptionData> subList, boolean isNotifyConsumerIdsChangedEnable) {
 
+        // 根据组名称获取消费者组信息
         ConsumerGroupInfo consumerGroupInfo = this.consumerTable.get(group);
+        // 如果为空新增ConsumerGroupInfo对象
         if (null == consumerGroupInfo) {
             ConsumerGroupInfo tmp = new ConsumerGroupInfo(group, consumeType, messageModel, consumeFromWhere);
             ConsumerGroupInfo prev = this.consumerTable.putIfAbsent(group, tmp);
             consumerGroupInfo = prev != null ? prev : tmp;
         }
 
+        // todo
         boolean r1 =
             consumerGroupInfo.updateChannel(clientChannelInfo, consumeType, messageModel,
                 consumeFromWhere);
+        // todo
         boolean r2 = consumerGroupInfo.updateSubscription(subList);
 
+        // 如果有变更
         if (r1 || r2) {
             if (isNotifyConsumerIdsChangedEnable) {
+                // todo 通知变更 触发变更事件，consumerGroupInfo中存储了该消费者组下的所有消费者的channel
                 this.consumerIdsChangeListener.handle(ConsumerGroupEvent.CHANGE, group, consumerGroupInfo.getAllChannel());
             }
         }
 
+        // todo 注册Consumer
         this.consumerIdsChangeListener.handle(ConsumerGroupEvent.REGISTER, group, subList);
 
         return r1 || r2;
@@ -136,6 +143,7 @@ public class ConsumerManager {
                 }
             }
             if (isNotifyConsumerIdsChangedEnable) {
+                // todo 消费变更事件
                 this.consumerIdsChangeListener.handle(ConsumerGroupEvent.CHANGE, group, consumerGroupInfo.getAllChannel());
             }
         }

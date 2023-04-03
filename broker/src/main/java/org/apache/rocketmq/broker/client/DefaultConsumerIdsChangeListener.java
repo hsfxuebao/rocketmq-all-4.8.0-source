@@ -37,25 +37,31 @@ public class DefaultConsumerIdsChangeListener implements ConsumerIdsChangeListen
             return;
         }
         switch (event) {
+            // 如果是消费者变更事件
             case CHANGE:
                 if (args == null || args.length < 1) {
                     return;
                 }
+                // 获取所有的消费者对应的channel
                 List<Channel> channels = (List<Channel>) args[0];
                 if (channels != null && brokerController.getBrokerConfig().isNotifyConsumerIdsChangedEnable()) {
                     for (Channel chl : channels) {
+                        // todo 向每一个消费者发送变更请求
                         this.brokerController.getBroker2Client().notifyConsumerIdsChanged(chl, group);
                     }
                 }
                 break;
+            // 如果是取消注册事件
             case UNREGISTER:
                 this.brokerController.getConsumerFilterManager().unRegister(group);
                 break;
+            // 如果是注册事件
             case REGISTER:
                 if (args == null || args.length < 1) {
                     return;
                 }
                 Collection<SubscriptionData> subscriptionDataList = (Collection<SubscriptionData>) args[0];
+                // todo 进行注册
                 this.brokerController.getConsumerFilterManager().register(group, subscriptionDataList);
                 break;
             default:

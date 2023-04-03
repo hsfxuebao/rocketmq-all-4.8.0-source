@@ -534,7 +534,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
 
             /**
              * 执行业务消息消费后，在处理结果前再次验证一次
-             * ProcessQueue的isDroped状态值。如果状态值为true，将不对结果进
+             * ProcessQueue的isDropped状态值。如果状态值为true，将不对结果进
              * 行任何处理。也就是说，在消息消费进入第四步时，如果因新的消费
              * 者加入或原先的消费者出现宕机，导致原先分配给消费者的队列在负
              * 载之后分配给了别的消费者，那么消息会被重复消费

@@ -503,7 +503,7 @@ public class MQClientInstance {
     public void sendHeartbeatToAllBrokerWithLock() {
         if (this.lockHeartbeat.tryLock()) {
             try {
-                // todo
+                // todo 调用sendHeartbeatToAllBroker向Broker发送心跳
                 this.sendHeartbeatToAllBroker();
                 this.uploadFilterClassSource();
             } catch (final Exception e) {
@@ -577,23 +577,26 @@ public class MQClientInstance {
 
         if (!this.brokerAddrTable.isEmpty()) {
             long times = this.sendHeartbeatTimesTotal.getAndIncrement();
+            // 获取所有的Broker进行遍历， key为 Broker Name， value为同一个name下的所有Broker实例（主从模式下Broker的name一致）
             Iterator<Entry<String, HashMap<Long, String>>> it = this.brokerAddrTable.entrySet().iterator();
             while (it.hasNext()) {
                 Entry<String, HashMap<Long, String>> entry = it.next();
                 String brokerName = entry.getKey();
+                // 获取同一个Broker Name下的所有Broker实例
                 HashMap<Long, String> oneTable = entry.getValue();
                 if (oneTable != null) {
+                    // 遍历所有的实例
                     for (Map.Entry<Long, String> entry1 : oneTable.entrySet()) {
                         Long id = entry1.getKey();
                         String addr = entry1.getValue();
-                        if (addr != null) {
+                        if (addr != null) {  // 如果地址不为空
                             if (consumerEmpty) {
                                 if (id != MixAll.MASTER_ID)
                                     continue;
                             }
 
                             try {
-                                // todo
+                                // todo 发送心跳
                                 int version = this.mQClientAPIImpl.sendHearbeat(addr, heartbeatData, 3000);
                                 if (!this.brokerVersionTable.containsKey(brokerName)) {
                                     this.brokerVersionTable.put(brokerName, new HashMap<String, Integer>(4));
@@ -932,6 +935,7 @@ public class MQClientInstance {
 
     public void unregisterConsumer(final String group) {
         this.consumerTable.remove(group);
+        // 取消注册
         this.unregisterClientWithLock(null, group);
     }
 
@@ -939,6 +943,7 @@ public class MQClientInstance {
         try {
             if (this.lockHeartbeat.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
+                    // todo 取消注册
                     this.unregisterClient(producerGroup, consumerGroup);
                 } catch (Exception e) {
                     log.error("unregisterClient exception", e);
@@ -954,7 +959,9 @@ public class MQClientInstance {
     }
 
     private void unregisterClient(final String producerGroup, final String consumerGroup) {
+        // 获取所有的Broker
         Iterator<Entry<String, HashMap<Long, String>>> it = this.brokerAddrTable.entrySet().iterator();
+        // 进行遍历
         while (it.hasNext()) {
             Entry<String, HashMap<Long, String>> entry = it.next();
             String brokerName = entry.getKey();
@@ -965,6 +972,7 @@ public class MQClientInstance {
                     String addr = entry1.getValue();
                     if (addr != null) {
                         try {
+                            // todo 发送取消注册请求
                             this.mQClientAPIImpl.unregisterClient(addr, this.clientId, producerGroup, consumerGroup, 3000);
                             log.info("unregister client[Producer: {} Consumer: {}] from broker[{} {} {}] success", producerGroup, consumerGroup, brokerName, entry1.getKey(), addr);
                         } catch (RemotingException e) {

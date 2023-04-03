@@ -615,6 +615,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             case RUNNING:
                 this.consumeMessageService.shutdown(awaitTerminateMillis);
                 this.persistConsumerOffset();
+                // todo 取消注册
                 this.mQClientFactory.unregisterConsumer(this.defaultMQPushConsumer.getConsumerGroup());
                 this.mQClientFactory.shutdown();
                 log.info("the consumer [{}] shutdown OK", this.defaultMQPushConsumer.getConsumerGroup());
@@ -725,7 +726,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 break;
         }
 
-        // 更新 topic 的信息，从nameServer获取数据
+        // todo 更新 topic 的信息，从nameServer获取数据
         this.updateTopicSubscribeInfoWhenSubscriptionChanged();
         this.mQClientFactory.checkClientInBroker();
         // todo 发送心跳，发送到所有的broker
@@ -948,10 +949,13 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     }
 
     private void updateTopicSubscribeInfoWhenSubscriptionChanged() {
+        // 获取当前消费者订阅的主题信息
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
         if (subTable != null) {
+            // 遍历订阅的主题信息
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
                 final String topic = entry.getKey();
+                // todo 从NameServer更新主题的路由信息
                 this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic);
             }
         }
