@@ -604,7 +604,7 @@ public class HAService {
                 try {
                     // todo 连接Master节点
                     if (this.connectMaster()) {
-                        // todo 是否需要报告消息同步偏移量
+                        // todo 是否需要报告消息同步偏移量 心跳间隔
                         if (this.isTimeToReportOffset()) {
                             // todo 向Master节点发送同步偏移量
                             boolean result = this.reportSlaveMaxOffset(this.currentReportedOffset);

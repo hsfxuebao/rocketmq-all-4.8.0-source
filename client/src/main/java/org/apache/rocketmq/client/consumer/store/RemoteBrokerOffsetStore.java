@@ -212,7 +212,9 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
     @Override
     public void updateConsumeOffsetToBroker(MessageQueue mq, long offset, boolean isOneway) throws RemotingException,
         MQBrokerException, InterruptedException, MQClientException {
+        // 第一次调用findBrokerAddressInAdmin方法获取Broker信息
         FindBrokerResult findBrokerResult = this.mQClientFactory.findBrokerAddressInAdmin(mq.getBrokerName());
+        // 如果获取为空，进行第二次调用
         if (null == findBrokerResult) {
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(mq.getTopic());
             findBrokerResult = this.mQClientFactory.findBrokerAddressInAdmin(mq.getBrokerName());
@@ -225,6 +227,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
             requestHeader.setQueueId(mq.getQueueId());
             requestHeader.setCommitOffset(offset);
 
+            // 发送保存消费进度的请求
             if (isOneway) {
                 this.mQClientFactory.getMQClientAPIImpl().updateConsumerOffsetOneway(
                     findBrokerResult.getBrokerAddr(), requestHeader, 1000 * 5);

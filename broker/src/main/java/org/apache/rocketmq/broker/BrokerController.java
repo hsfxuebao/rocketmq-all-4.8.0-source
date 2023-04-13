@@ -914,6 +914,7 @@ public class BrokerController {
         // todo HA主从同步
         if (!messageStoreConfig.isEnableDLegerCommitLog()) {
             startProcessorByHa(messageStoreConfig.getBrokerRole());
+            // 处理从节点的同步
             handleSlaveSynchronize(messageStoreConfig.getBrokerRole());
             this.registerBrokerAll(true, false, true);
         }
@@ -1173,15 +1174,18 @@ public class BrokerController {
     }
 
     private void handleSlaveSynchronize(BrokerRole role) {
+        // 如果是SLAVE节点
         if (role == BrokerRole.SLAVE) {
             if (null != slaveSyncFuture) {
                 slaveSyncFuture.cancel(false);
             }
             this.slaveSynchronize.setMasterAddr(null);
+            // todo 设置定时任务，定时进行数据同步
             slaveSyncFuture = this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
                     try {
+                        // todo 同步数据
                         BrokerController.this.slaveSynchronize.syncAll();
                     }
                     catch (Throwable e) {

@@ -618,7 +618,7 @@ public class DefaultMessageStore implements MessageStore {
 
         GetMessageResult getResult = new GetMessageResult();
 
-        // 当前CommitLog文件的最大偏移量
+        // todo 当前CommitLog文件的最大偏移量
         final long maxOffsetPy = this.commitLog.getMaxOffset();
 
         // todo 根据topic与queueId一个ConsumeQueue，consumeQueue记录的是消息在commitLog的位置
@@ -667,7 +667,7 @@ public class DefaultMessageStore implements MessageStore {
             //偏移量（ConsumeQueue）从CommitLog文件中查找消息的过程，在这里
             //就不重复介绍了
             } else {
-                // 从 consumerQueue 文件中获取消息
+                // 从 consumerQueue 文件中获取消息   根据消费进度获取消息队列
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
@@ -755,9 +755,12 @@ public class DefaultMessageStore implements MessageStore {
 
                         nextBeginOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
 
+                        // CommitLog最大偏移量减去本次拉取消息的最大物理偏移量
                         long diff = maxOffsetPy - maxPhyOffsetPulling;
+                        // 计算消息在PageCache中的总大小（总物理内存 * 消息存储在内存中的阀值/100）
                         long memory = (long) (StoreUtil.TOTAL_PHYSICAL_MEMORY_SIZE
                             * (this.messageStoreConfig.getAccessMessageInMemoryMaxRatio() / 100.0));
+                        // 是否建议下次去从节点拉取消息
                         getResult.setSuggestPullingFromSlave(diff > memory);
                     } finally {
 

@@ -1102,26 +1102,37 @@ public class MQClientInstance {
         boolean slave = false;
         boolean found = false;
 
+        // 获取所有的Broker ID
         HashMap<Long/* brokerId */, String/* address */> map = this.brokerAddrTable.get(brokerName);
         if (map != null && !map.isEmpty()) {
             brokerAddr = map.get(brokerId);
+            // 是否是从节点
             slave = brokerId != MixAll.MASTER_ID;
+            // 地址是否为空
             found = brokerAddr != null;
 
+            // 如果地址为空并且是从节点
             if (!found && slave) {
+                // 获取下一个Broker
                 brokerAddr = map.get(brokerId + 1);
                 found = brokerAddr != null;
             }
 
+            // 如果地址为空
             if (!found && !onlyThisBroker) {
+                // 获取集合中的第一个节点
                 Entry<Long, String> entry = map.entrySet().iterator().next();
+                // 获取地址
                 brokerAddr = entry.getValue();
+                // 是否是从节点
                 slave = entry.getKey() != MixAll.MASTER_ID;
+                // 置为true
                 found = true;
             }
         }
 
         if (found) {
+            // 返回数据
             return new FindBrokerResult(brokerAddr, slave, findBrokerVersion(brokerName, brokerAddr));
         }
 

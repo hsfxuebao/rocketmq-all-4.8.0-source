@@ -54,6 +54,7 @@ public class PullAPIWrapper {
     private final MQClientInstance mQClientFactory;
     private final String consumerGroup;
     private final boolean unitMode;
+    // KEY为消息队列，VALUE为建议的Broker ID
     private ConcurrentMap<MessageQueue, AtomicLong/* brokerId */> pullFromWhichNodeTable =
         new ConcurrentHashMap<MessageQueue, AtomicLong>(32);
     private volatile boolean connectBrokerByUser = false;
@@ -71,6 +72,7 @@ public class PullAPIWrapper {
         final SubscriptionData subscriptionData) {
         PullResultExt pullResultExt = (PullResultExt) pullResult;
 
+        // todo 将拉取消息请求返回的建议Broker ID，加入到pullFromWhichNodeTable中
         this.updatePullFromWhichNode(mq, pullResultExt.getSuggestWhichBrokerId());
         if (PullStatus.FOUND == pullResult.getPullStatus()) {
             // 将二进制数据解码为对象
@@ -125,6 +127,7 @@ public class PullAPIWrapper {
     public void updatePullFromWhichNode(final MessageQueue mq, final long brokerId) {
         AtomicLong suggest = this.pullFromWhichNodeTable.get(mq);
         if (null == suggest) {
+            // 向pullFromWhichNodeTable中添加数据
             this.pullFromWhichNodeTable.put(mq, new AtomicLong(brokerId));
         } else {
             suggest.set(brokerId);
@@ -181,6 +184,7 @@ public class PullAPIWrapper {
         //Broker地址，在整个RocketMQ Broker的部署结构中，相同名称的
         //Broker构成主从结构，其BrokerId会不一样，在每次拉取消息后，会
         //给出一个建议，下次是主节点还是从节点拉取
+        // todo recalculatePullFromWhichNode
         FindBrokerResult findBrokerResult =
             this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(),
                 this.recalculatePullFromWhichNode(mq), false);
@@ -252,11 +256,13 @@ public class PullAPIWrapper {
             return this.defaultBrokerId;
         }
 
+        // 从pullFromWhichNodeTable中获取建议的broker ID
         AtomicLong suggest = this.pullFromWhichNodeTable.get(mq);
         if (suggest != null) {
             return suggest.get();
         }
 
+        // 返回Master Broker ID
         return MixAll.MASTER_ID;
     }
 

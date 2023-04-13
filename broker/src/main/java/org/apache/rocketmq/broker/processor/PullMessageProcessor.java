@@ -269,18 +269,22 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             responseHeader.setMinOffset(getMessageResult.getMinOffset());
             responseHeader.setMaxOffset(getMessageResult.getMaxOffset());
 
+            // 是否建议从从节点拉取消息
             if (getMessageResult.isSuggestPullingFromSlave()) {
+                // 选择一个从节点
                 responseHeader.setSuggestWhichBrokerId(subscriptionGroupConfig.getWhichBrokerWhenConsumeSlowly());
             } else {
                 responseHeader.setSuggestWhichBrokerId(MixAll.MASTER_ID);
             }
 
+            // 判断Broker的角色
             // todo 根据主从同步延迟，如果从节点数据包含下一次拉取的偏移量，则设置下一次拉取任务的brokerId
             switch (this.brokerController.getMessageStoreConfig().getBrokerRole()) {
                 case ASYNC_MASTER:
                 case SYNC_MASTER:
                     break;
                 case SLAVE:
+                    // 如果不允许从从节点读取数据，设置为MasterID
                     if (!this.brokerController.getBrokerConfig().isSlaveReadEnable()) {
                         response.setCode(ResponseCode.PULL_RETRY_IMMEDIATELY);
                         responseHeader.setSuggestWhichBrokerId(MixAll.MASTER_ID);
@@ -288,16 +292,21 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                     break;
             }
 
+            // 如果开启了允许从从节点读取数据
             if (this.brokerController.getBrokerConfig().isSlaveReadEnable()) {
                 // consume too slow ,redirect to another machine
+                // 如果建议从从节点拉消息
                 if (getMessageResult.isSuggestPullingFromSlave()) {
+                    // 获取从节点
                     responseHeader.setSuggestWhichBrokerId(subscriptionGroupConfig.getWhichBrokerWhenConsumeSlowly());
                 }
                 // consume ok
                 else {
+                    // 获取指定的broker
                     responseHeader.setSuggestWhichBrokerId(subscriptionGroupConfig.getBrokerId());
                 }
             } else {
+                // 使用Master节点
                 responseHeader.setSuggestWhichBrokerId(MixAll.MASTER_ID);
             }
 

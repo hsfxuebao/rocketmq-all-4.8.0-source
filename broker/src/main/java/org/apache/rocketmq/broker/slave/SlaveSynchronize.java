@@ -47,6 +47,7 @@ public class SlaveSynchronize {
 
     public void syncAll() {
         this.syncTopicConfig();
+        // 同步消费进度
         this.syncConsumerOffset();
         this.syncDelayOffset();
         this.syncSubscriptionGroupConfig();
@@ -80,10 +81,13 @@ public class SlaveSynchronize {
         String masterAddrBak = this.masterAddr;
         if (masterAddrBak != null && !masterAddrBak.equals(brokerController.getBrokerAddr())) {
             try {
+                // 向主节点发送请求获取消费进度信息
                 ConsumerOffsetSerializeWrapper offsetWrapper =
                     this.brokerController.getBrokerOuterAPI().getAllConsumerOffset(masterAddrBak);
+                // 设置数据
                 this.brokerController.getConsumerOffsetManager().getOffsetTable()
                     .putAll(offsetWrapper.getOffsetTable());
+                // 将获取到的消费进度数据进行持久化
                 this.brokerController.getConsumerOffsetManager().persist();
                 log.info("Update slave consumer offset from master, {}", masterAddrBak);
             } catch (Exception e) {
