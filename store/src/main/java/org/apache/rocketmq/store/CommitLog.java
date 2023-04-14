@@ -641,21 +641,24 @@ public class CommitLog {
         // 事务
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
-            // Delay Delivery 延时消息的处理
+            // todo Delay Delivery 延时消息的处理
             if (msg.getDelayTimeLevel() > 0) {
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
                     msg.setDelayTimeLevel(this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel());
                 }
 
-                // 设置延迟队列
+                // todo 设置延迟队列  将延迟消息的topic替换为broker固定的topic: SCHEDULE_TOPIC_XXXX
                 topic = TopicValidator.RMQ_SYS_SCHEDULE_TOPIC;
+                // 将queueid替换为（延迟级别-1)
                 queueId = ScheduleMessageService.delayLevel2QueueId(msg.getDelayTimeLevel());
 
-                // Backup real topic, queueId
+                // Backup real topic, queueId 备份原始的topic/queueid, 留着后面解析
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_TOPIC, msg.getTopic());
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_QUEUE_ID, String.valueOf(msg.getQueueId()));
                 msg.setPropertiesString(MessageDecoder.messageProperties2String(msg.getProperties()));
 
+                //TODO:将消息topic设置为延迟topic,这样订阅该topic的消费者不能及时去消费了
+                //TODO:等到延迟时间到了，将延迟topic在替换成原始topic,消费者就可以消费了
                 msg.setTopic(topic);
                 msg.setQueueId(queueId);
             }

@@ -65,6 +65,7 @@ public class ScheduleMessageService extends ConfigManager {
     // 消息发送异常后延迟该时间后再继续参与调度
     private static final long DELAY_FOR_A_PERIOD = 10000L;
 
+    // TODO:broker启动时会初始化这个Map,key是延迟等级，共计18个，value就是延迟等级对应的时间
     // 延迟级别，将“1s 5s 10s
     //30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h” 字符串解析
     //成delayLevelTable，转换后的数据结构类似
@@ -146,6 +147,7 @@ public class ScheduleMessageService extends ConfigManager {
              * 从第二次调度开始，才使用相应的延迟时间执行定时任务。延迟级别
              * 与消息消费队列的映射关系为消息队列ID=延迟级别-1
              */
+            //TODO:遍历延迟等级列表
             for (Map.Entry<Integer, Long> entry : this.delayLevelTable.entrySet()) {
                 Integer level = entry.getKey();
                 Long timeDelay = entry.getValue();
@@ -155,12 +157,12 @@ public class ScheduleMessageService extends ConfigManager {
                 }
 
                 if (timeDelay != null) {
-                    // todo
+                    // todo 处理延迟消息
                     this.timer.schedule(new DeliverDelayedMessageTimerTask(level, offset), FIRST_DELAY_TIME);
                 }
             }
 
-            // 创建定时任务，每隔10s持久化一次延迟队列的消息消费进度（延迟消息调进度）
+            // todo 创建定时任务，每隔10s持久化一次延迟队列的消息消费进度（延迟消息调进度）
             this.timer.scheduleAtFixedRate(new TimerTask() {
 
                 @Override
@@ -277,7 +279,7 @@ public class ScheduleMessageService extends ConfigManager {
         public void run() {
             try {
                 if (isStarted()) {
-                    // todo
+                    // todo 核心逻辑
                     this.executeOnTimeup();
                 }
             } catch (Exception e) {
@@ -323,6 +325,7 @@ public class ScheduleMessageService extends ConfigManager {
                         // 遍历ConsumeQueue文件，每一个标准ConsumeQueue条目
                         //为20个字节。解析出消息的物理偏移量、消息长度、消息标志的哈希
                         //码，为从CommitLog文件加载具体的消息做准备
+                        //TODO:offset用来标记队列读取到哪里了
                         long nextOffset = offset;
                         int i = 0;
                         ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
@@ -344,16 +347,19 @@ public class ScheduleMessageService extends ConfigManager {
                             }
 
                             long now = System.currentTimeMillis();
+                            //TODO:计算投递时间，时间存储在了tag hashcode 中了
                             long deliverTimestamp = this.correctDeliverTimestamp(now, tagsCode);
 
                             nextOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
 
                             long countdown = deliverTimestamp - now;
 
+                            //TODO:投递时间到了
                             if (countdown <= 0) {
                                 // 根据消息物理偏移量与消息大小从CommitLog文件中查找
                                 //消息。如果未找到消息，则打印错误日志，根据延迟时间创建下一个
                                 //定时器
+                                //TODO:去broker中将消息读取出来
                                 MessageExt msgExt =
                                     ScheduleMessageService.this.defaultMessageStore.lookMessageByOffset(
                                         offsetPy, sizePy);
@@ -363,6 +369,7 @@ public class ScheduleMessageService extends ConfigManager {
                                         // 根据消息属性重新构建新的消息对象，清除消息的延迟
                                         //级别属性（delayLevel），恢复消息原先的消息主题与消息消费队
                                         //列，消息的消费次数reconsumeTimes并不会丢失
+                                        //TODO:构建新的消息体，将原来的消息信息设置到这里，并将topic和queueid设置为原始的topic和queueid(前面备份过）
                                         MessageExtBrokerInner msgInner = this.messageTimeup(msgExt);
                                         if (TopicValidator.RMQ_SYS_TRANS_HALF_TOPIC.equals(msgInner.getTopic())) {
                                             log.error("[BUG] the real topic of schedule msg is {}, discard the msg. msg={}",
@@ -371,6 +378,7 @@ public class ScheduleMessageService extends ConfigManager {
                                         }
                                         // 将消息再次存入CommitLog文件，并转发到主题对应的消
                                         //息队列上，供消费者再次消费
+                                        //TODO:将消息再次写入commitlog中，topic是原始topic,这样消费者就可以去消费了
                                         PutMessageResult putMessageResult =
                                             ScheduleMessageService.this.writeMessageStore
                                                 .putMessage(msgInner);
@@ -404,6 +412,7 @@ public class ScheduleMessageService extends ConfigManager {
                                     }
                                 }
                             } else {
+                                // todo 开启一个JDK的Timer延迟任务，延迟时间就是countdown
                                 ScheduleMessageService.this.timer.schedule(
                                     new DeliverDelayedMessageTimerTask(this.delayLevel, nextOffset),
                                     countdown);
