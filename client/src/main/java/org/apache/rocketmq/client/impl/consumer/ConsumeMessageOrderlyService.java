@@ -111,7 +111,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
-                    // 加锁
+                    // todo 加锁
                     ConsumeMessageOrderlyService.this.lockMQPeriodically();
                 }
             }, 1000 * 1, ProcessQueue.REBALANCE_LOCK_INTERVAL, TimeUnit.MILLISECONDS);
@@ -237,6 +237,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
 
     public synchronized void lockMQPeriodically() {
         if (!this.stopped) {
+            // todo 进行加锁
             this.defaultMQPushConsumerImpl.getRebalanceImpl().lockAll();
         }
     }
@@ -473,6 +474,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
             // 根据消息队列获取一个对象。消费消息时申请独占
             //objLock，顺序消息消费的并发度为消息队列，也就是一个消息消费队
             //列同一时刻只会被一个消费线程池中的一个线程消费
+            // todo
             final Object objLock = messageQueueLock.fetchLockObject(this.messageQueue);
             synchronized (objLock) {
 

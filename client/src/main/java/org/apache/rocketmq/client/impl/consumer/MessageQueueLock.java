@@ -28,9 +28,11 @@ public class MessageQueueLock {
         new ConcurrentHashMap<MessageQueue, Object>();
 
     public Object fetchLockObject(final MessageQueue mq) {
+        // 获取消息队列对应的对象锁，也就是一个Object类型的对象
         Object objLock = this.mqLockTable.get(mq);
         if (null == objLock) {
             objLock = new Object();
+            // 加入到Map中
             Object prevLock = this.mqLockTable.putIfAbsent(mq, objLock);
             if (prevLock != null) {
                 objLock = prevLock;

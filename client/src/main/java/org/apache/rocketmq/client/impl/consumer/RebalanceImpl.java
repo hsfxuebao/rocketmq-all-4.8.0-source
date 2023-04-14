@@ -137,11 +137,14 @@ public abstract class RebalanceImpl {
     }
 
     public boolean lock(final MessageQueue mq) {
+        // 获取broker信息
         FindBrokerResult findBrokerResult = this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(), MixAll.MASTER_ID, true);
         if (findBrokerResult != null) {
+            // 构建加锁请求
             LockBatchRequestBody requestBody = new LockBatchRequestBody();
             requestBody.setConsumerGroup(this.consumerGroup);
             requestBody.setClientId(this.mQClientFactory.getClientId());
+            // 设置要加锁的消息队列
             requestBody.getMqSet().add(mq);
 
             try {
@@ -174,43 +177,59 @@ public abstract class RebalanceImpl {
     }
 
     public void lockAll() {
+        // 从处理队列表中获取broker对应的消息队列，key为broker名称，value为broker下的消息队列
         HashMap<String, Set<MessageQueue>> brokerMqs = this.buildProcessQueueTableByBrokerName();
 
         Iterator<Entry<String, Set<MessageQueue>>> it = brokerMqs.entrySet().iterator();
+        // 遍历订阅的消息队列
         while (it.hasNext()) {
             Entry<String, Set<MessageQueue>> entry = it.next();
+            // broker名称
             final String brokerName = entry.getKey();
+            // 获取消息队列
             final Set<MessageQueue> mqs = entry.getValue();
 
             if (mqs.isEmpty())
                 continue;
 
+            // 根据broker名称获取broker信息
             FindBrokerResult findBrokerResult = this.mQClientFactory.findBrokerAddressInSubscribe(brokerName, MixAll.MASTER_ID, true);
             if (findBrokerResult != null) {
+                // 构建加锁请求
                 LockBatchRequestBody requestBody = new LockBatchRequestBody();
+                // 设置消费者组
                 requestBody.setConsumerGroup(this.consumerGroup);
+                // 设置ID
                 requestBody.setClientId(this.mQClientFactory.getClientId());
+                // 设置要加锁的消息队列
                 requestBody.setMqSet(mqs);
 
                 try {
+                    // 批量进行加锁，返回加锁成功的消息队列
                     Set<MessageQueue> lockOKMQSet =
                         this.mQClientFactory.getMQClientAPIImpl().lockBatchMQ(findBrokerResult.getBrokerAddr(), requestBody, 1000);
 
+                    // 遍历加锁成功的队列
                     for (MessageQueue mq : lockOKMQSet) {
+                        // 从处理队列表中获取对应的处理队列对象
                         ProcessQueue processQueue = this.processQueueTable.get(mq);
+                        // 如果不为空，设置locked为true表示加锁成功
                         if (processQueue != null) {
                             if (!processQueue.isLocked()) {
                                 log.info("the message queue locked OK, Group: {} {}", this.consumerGroup, mq);
                             }
 
+                            // 设置加锁成功标记
                             processQueue.setLocked(true);
                             processQueue.setLastLockTimestamp(System.currentTimeMillis());
                         }
                     }
+                    // 处理加锁失败的消息队列
                     for (MessageQueue mq : mqs) {
                         if (!lockOKMQSet.contains(mq)) {
                             ProcessQueue processQueue = this.processQueueTable.get(mq);
                             if (processQueue != null) {
+                                // 设置加锁失败标记
                                 processQueue.setLocked(false);
                                 log.warn("the message queue locked Failed, Group: {} {}", this.consumerGroup, mq);
                             }
@@ -421,7 +440,9 @@ public abstract class RebalanceImpl {
          * DefaultMQPushConsumer#setConsumeFromWhere方法进行设置
          */
         List<PullRequest> pullRequestList = new ArrayList<PullRequest>();
+        // 遍历队列集合
         for (MessageQueue mq : mqSet) {
+            // 如果processQueueTable之前不包含当前的消息队列
             if (!this.processQueueTable.containsKey(mq)) {
 
                 /**
@@ -430,7 +451,8 @@ public abstract class RebalanceImpl {
                  * 功，则创建该消息队列的拉取任务，否则跳过，等待其他消费者释放
                  * 该消息队列的锁，然后在下一次队列重新负载时再尝试加锁
                  */
-                // 顺序消息
+                // 如果是顺序消费，调用lock方法进行加锁，如果加锁失败不往下执行，继续处理下一个消息队列
+                // todo lock
                 if (isOrder && !this.lock(mq)) {
                     log.warn("doRebalance, {}, add a new mq failed, {}, because lock failed", consumerGroup, mq);
                     continue;
@@ -440,11 +462,14 @@ public abstract class RebalanceImpl {
                 ProcessQueue pq = new ProcessQueue();
                 // todo PullRequest的nextOffset计算逻辑位于RebalancePushImpl#computePullFromWhere
                 long nextOffset = this.computePullFromWhere(mq);
+                // 如果偏移量大于等于0
                 if (nextOffset >= 0) {
+                    // 放入处理队列表中
                     ProcessQueue pre = this.processQueueTable.putIfAbsent(mq, pq);
                     if (pre != null) {
                         log.info("doRebalance, {}, mq already exists, {}", consumerGroup, mq);
                     } else {
+                        // 如果之前不存在，构建PullRequest，之后对请求进行处理，进行消息拉取
                         log.info("doRebalance, {}, add a new mq, {}", consumerGroup, mq);
                         //TODO:构建拉取请求对象PullRequest
                         PullRequest pullRequest = new PullRequest();
