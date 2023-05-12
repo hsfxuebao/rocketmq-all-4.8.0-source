@@ -875,7 +875,7 @@ public class BrokerController {
     }
 
     public void start() throws Exception {
-        // todo 启动消息存储相关组件
+        // todo 启动消息存储相关组件,分发线程的启动
         if (this.messageStore != null) {
             this.messageStore.start();
         }

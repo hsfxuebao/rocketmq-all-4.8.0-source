@@ -227,7 +227,7 @@ public abstract class NettyRemotingAbstract {
                                 }
                             }
                         };
-                        // 异步netty请求处理器
+                        // todo 异步netty请求处理器
                         if (pair.getObject1() instanceof AsyncNettyRequestProcessor) {
                             AsyncNettyRequestProcessor processor = (AsyncNettyRequestProcessor)pair.getObject1();
                             processor.asyncProcessRequest(ctx, cmd, callback);
@@ -311,6 +311,7 @@ public abstract class NettyRemotingAbstract {
                 // todo 执行回调
                 executeInvokeCallback(responseFuture);
             } else {
+                // todo 同步发送，设置响应结果
                 responseFuture.putResponse(cmd);
                 responseFuture.release();
             }
@@ -458,6 +459,7 @@ public abstract class NettyRemotingAbstract {
                 }
             });
 
+            // todo 同步等待
             RemotingCommand responseCommand = responseFuture.waitResponse(timeoutMillis);
             if (null == responseCommand) {
                 // 成功了还是null  还是超时
